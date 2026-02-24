@@ -52,7 +52,7 @@ struct GameEconomyConfig {
     // MARK: - Continue System
     static let continueCosts: [Int] = [200, 300, 400] // escalating per session
     static let maxContinuesPerSession: Int = 3
-    static let continueTimedBonus: Int = 15 // seconds added
+    static let continueTimedBonus: Int = 60 // seconds added (1 minute)
     static let continueMoveBonus: Int = 5 // moves added
 
     // MARK: - Daily Login Rewards

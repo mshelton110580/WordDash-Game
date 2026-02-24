@@ -721,7 +721,91 @@ class GameScene: SKScene {
             }
         }
 
+        // Real-time coin earning: award coins for long words during gameplay
+        let wordLen = selectedPath.count
+        var coinsForWord = 0
+        for bonus in GameEconomyConfig.longWordBonus {
+            if wordLen >= bonus.minLength {
+                coinsForWord = bonus.coins
+                break
+            }
+        }
+        if coinsForWord > 0 {
+            gameState.coinsEarnedThisLevel += coinsForWord
+            CoinManager.shared.addCoins(coinsForWord, reason: .levelReward)
+            // Animate coin fly from last tile to coin HUD
+            if let lastTile = selectedPath.last {
+                animateCoinFly(from: lastTile, amount: coinsForWord)
+            }
+        }
+
         updateHUD()
+    }
+
+    // MARK: - Coin Fly Animation
+
+    func animateCoinFly(from tile: TileModel, amount: Int) {
+        let startPos = positionForTile(row: tile.row, col: tile.col)
+        let worldStart = boardNode.convert(startPos, to: self)
+        let targetPos = coinHUDLabel.position
+
+        let coin = SKShapeNode(circleOfRadius: 10)
+        coin.fillColor = SKColor(red: 0.96, green: 0.62, blue: 0.04, alpha: 1.0)
+        coin.strokeColor = SKColor(red: 0.98, green: 0.75, blue: 0.14, alpha: 1.0)
+        coin.lineWidth = 1.5
+        coin.position = worldStart
+        coin.zPosition = 200
+        effectsLayer.addChild(coin)
+
+        let dollarSign = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        dollarSign.text = "$"
+        dollarSign.fontSize = 10
+        dollarSign.fontColor = .white
+        dollarSign.verticalAlignmentMode = .center
+        dollarSign.horizontalAlignmentMode = .center
+        coin.addChild(dollarSign)
+
+        // Amount label floating above
+        let amountLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        amountLabel.text = "+\(amount)"
+        amountLabel.fontSize = 14
+        amountLabel.fontColor = SKColor(red: 0.98, green: 0.75, blue: 0.14, alpha: 1.0)
+        amountLabel.position = CGPoint(x: 0, y: 18)
+        amountLabel.verticalAlignmentMode = .center
+        amountLabel.horizontalAlignmentMode = .center
+        coin.addChild(amountLabel)
+
+        // Bezier curve path
+        let midPoint = CGPoint(
+            x: (worldStart.x + targetPos.x) / 2,
+            y: max(worldStart.y, targetPos.y) + 50
+        )
+
+        let path = CGMutablePath()
+        path.move(to: worldStart)
+        path.addQuadCurve(to: targetPos, control: midPoint)
+
+        let followPath = SKAction.follow(path, asOffset: false, orientToPath: false, duration: 0.8)
+        followPath.timingMode = .easeIn
+        let fadeOut = SKAction.fadeOut(withDuration: 0.2)
+        let scaleDown = SKAction.scale(to: 0.3, duration: 0.2)
+        let endGroup = SKAction.group([fadeOut, scaleDown])
+        let sequence = SKAction.sequence([followPath, endGroup, SKAction.removeFromParent()])
+
+        // Fade amount label quickly
+        amountLabel.run(SKAction.sequence([
+            SKAction.wait(forDuration: 0.4),
+            SKAction.fadeOut(withDuration: 0.3)
+        ]))
+
+        coin.run(sequence) { [weak self] in
+            // Pulse the coin HUD label
+            self?.coinHUDLabel.run(SKAction.sequence([
+                SKAction.scale(to: 1.3, duration: 0.1),
+                SKAction.scale(to: 1.0, duration: 0.1)
+            ]))
+            self?.updateHUD()
+        }
     }
 
     func processMineChain(mines: [TileModel]) {
@@ -1081,8 +1165,12 @@ class GameScene: SKScene {
         // Update power-up counts
         updatePowerUpCounts()
 
-        // Update coin display
-        coinHUDLabel?.text = "🪙 \(CoinManager.shared.balance)"
+        // Update coin display — show balance + earned this level
+        if state.coinsEarnedThisLevel > 0 {
+            coinHUDLabel?.text = "🪙 \(CoinManager.shared.balance) (+\(state.coinsEarnedThisLevel))"
+        } else {
+            coinHUDLabel?.text = "🪙 \(CoinManager.shared.balance)"
+        }
     }
 
     // MARK: - Power-Up Bar
@@ -1493,49 +1581,113 @@ class GameScene: SKScene {
         // Buttons
         var btnY: CGFloat = -panelHeight / 2 + 130
 
-        // Continue button (only if failed and can continue)
         if !completed && continueManager.canContinue {
-            let cost = continueManager.currentCost
-            let canAfford = CoinManager.shared.canAfford(cost)
-            let continueBtn = createButton(
-                text: canAfford ? "Continue (🪙\(cost))" : "Continue (Need 🪙\(cost))",
-                width: 240, height: 44
-            )
-            continueBtn.position = CGPoint(x: 0, y: btnY + 55)
-            continueBtn.name = canAfford ? "continueBtn" : "continueDisabledBtn"
-            panel.addChild(continueBtn)
+            // --- Redesigned Continue/Forfeit Screen ---
 
-            // Ad continue (stub)
+            // Watch Ad option (free, 1 per level)
             if continueManager.canUseAdContinue {
-                let adBtn = createButton(text: "▶ Watch Ad to Continue", width: 240, height: 40)
-                adBtn.position = CGPoint(x: 0, y: btnY + 10)
+                let adBtn = createButton(text: "▶ Watch Ad (Free Continue)", width: 260, height: 44)
+                adBtn.position = CGPoint(x: 0, y: btnY + 55)
                 adBtn.name = "adContinueBtn"
                 panel.addChild(adBtn)
-                btnY -= 40
+
+                // Ad label
+                let adNote = SKLabelNode(fontNamed: "AvenirNext-Regular")
+                adNote.text = "+1 minute · 1 per level"
+                adNote.fontSize = 11
+                adNote.fontColor = SKColor(white: 0.6, alpha: 1.0)
+                adNote.position = CGPoint(x: 0, y: btnY + 30)
+                panel.addChild(adNote)
             }
-        }
 
-        // Next Level button
-        if completed && (levelConfig?.levelNumber ?? 10) < 10 {
-            let nextBtn = createButton(text: "Next Level", width: 200, height: 44)
-            nextBtn.position = CGPoint(x: 0, y: btnY)
-            nextBtn.name = "nextLevelBtn"
-            panel.addChild(nextBtn)
+            // Continue with Coins option
+            let cost = continueManager.currentCost
+            let canAfford = CoinManager.shared.canAfford(cost)
+            let coinBtnText = canAfford ? "Continue (🪙\(cost))" : "Need 🪙\(cost)"
+            let coinBtn = createButton(text: coinBtnText, width: 260, height: 44)
+            coinBtn.position = CGPoint(x: 0, y: btnY - 10)
+            coinBtn.name = canAfford ? "continueBtn" : "continueDisabledBtn"
+            panel.addChild(coinBtn)
+
+            if !canAfford {
+                // Grey out the button
+                if let bg = coinBtn.children.first as? SKShapeNode {
+                    bg.fillColor = SKColor(white: 0.3, alpha: 0.8)
+                }
+            }
+
+            let coinNote = SKLabelNode(fontNamed: "AvenirNext-Regular")
+            coinNote.text = "+1 minute · \(3 - continueManager.continueCount) remaining"
+            coinNote.fontSize = 11
+            coinNote.fontColor = SKColor(white: 0.6, alpha: 1.0)
+            coinNote.position = CGPoint(x: 0, y: btnY - 35)
+            panel.addChild(coinNote)
+
+            // Forfeit option with coins-at-risk warning
+            let coinsAtRisk = gameState.coinsEarnedThisLevel
+            let forfeitBtn = createButton(text: "Forfeit Level", width: 260, height: 44)
+            forfeitBtn.position = CGPoint(x: 0, y: btnY - 75)
+            forfeitBtn.name = "forfeitBtn"
+            // Red-tinted background
+            if let bg = forfeitBtn.children.first as? SKShapeNode {
+                bg.fillColor = SKColor(red: 0.6, green: 0.15, blue: 0.15, alpha: 1.0)
+            }
+            panel.addChild(forfeitBtn)
+
+            if coinsAtRisk > 0 {
+                let forfeitWarning = SKLabelNode(fontNamed: "AvenirNext-Bold")
+                forfeitWarning.text = "⚠️ You will lose \(coinsAtRisk) coins earned this level"
+                forfeitWarning.fontSize = 11
+                forfeitWarning.fontColor = SKColor(red: 1.0, green: 0.4, blue: 0.4, alpha: 1.0)
+                forfeitWarning.position = CGPoint(x: 0, y: btnY - 100)
+                panel.addChild(forfeitWarning)
+            } else {
+                let forfeitNote = SKLabelNode(fontNamed: "AvenirNext-Regular")
+                forfeitNote.text = "No coins at risk"
+                forfeitNote.fontSize = 11
+                forfeitNote.fontColor = SKColor(white: 0.5, alpha: 1.0)
+                forfeitNote.position = CGPoint(x: 0, y: btnY - 100)
+                panel.addChild(forfeitNote)
+            }
+
+        } else if completed {
+            // --- Level Complete Buttons ---
+
+            // Next Level button
+            if (levelConfig?.levelNumber ?? 10) < 10 {
+                let nextBtn = createButton(text: "Next Level", width: 200, height: 44)
+                nextBtn.position = CGPoint(x: 0, y: btnY)
+                nextBtn.name = "nextLevelBtn"
+                panel.addChild(nextBtn)
+                btnY -= 50
+            }
+
+            // Retry button
+            let retryBtn = createButton(text: "Retry", width: 200, height: 44)
+            retryBtn.position = CGPoint(x: 0, y: btnY)
+            retryBtn.name = "retryBtn"
+            panel.addChild(retryBtn)
             btnY -= 50
+
+            // Map button
+            let mapBtn = createButton(text: "Level Map", width: 200, height: 44)
+            mapBtn.position = CGPoint(x: 0, y: btnY)
+            mapBtn.name = "mapBtn"
+            panel.addChild(mapBtn)
+
+        } else {
+            // No continues left — show retry and map only
+            let retryBtn = createButton(text: "Retry", width: 200, height: 44)
+            retryBtn.position = CGPoint(x: 0, y: btnY)
+            retryBtn.name = "retryBtn"
+            panel.addChild(retryBtn)
+            btnY -= 50
+
+            let mapBtn = createButton(text: "Level Map", width: 200, height: 44)
+            mapBtn.position = CGPoint(x: 0, y: btnY)
+            mapBtn.name = "mapBtn"
+            panel.addChild(mapBtn)
         }
-
-        // Retry button
-        let retryBtn = createButton(text: "Retry", width: 200, height: 44)
-        retryBtn.position = CGPoint(x: 0, y: btnY)
-        retryBtn.name = "retryBtn"
-        panel.addChild(retryBtn)
-        btnY -= 50
-
-        // Map button
-        let mapBtn = createButton(text: "Level Map", width: 200, height: 44)
-        mapBtn.position = CGPoint(x: 0, y: btnY)
-        mapBtn.name = "mapBtn"
-        panel.addChild(mapBtn)
 
         overlay.isUserInteractionEnabled = false
     }
@@ -1603,6 +1755,16 @@ class GameScene: SKScene {
                 }
             }
 
+            // Check Forfeit
+            if let forfeitBtn = panel.childNode(withName: "forfeitBtn") {
+                let btnRect = CGRect(x: forfeitBtn.position.x - 130, y: forfeitBtn.position.y - 22,
+                                     width: 260, height: 44)
+                if btnRect.contains(panelLocation) {
+                    forfeitLevel()
+                    return
+                }
+            }
+
             // Check Map
             if let mapBtn = panel.childNode(withName: "mapBtn") {
                 let btnRect = CGRect(x: mapBtn.position.x - 100, y: mapBtn.position.y - 22,
@@ -1633,6 +1795,21 @@ class GameScene: SKScene {
         let scene = GameScene(size: size)
         scene.scaleMode = scaleMode
         scene.configure(with: config, progress: progress)
+        view?.presentScene(scene, transition: SKTransition.fade(withDuration: 0.5))
+    }
+
+    func forfeitLevel() {
+        // Deduct coins earned this level
+        let coinsToLose = gameState.coinsEarnedThisLevel
+        if coinsToLose > 0 {
+            CoinManager.shared.spendCoins(coinsToLose, reason: .continueSpend)
+        }
+        gameState.coinsEarnedThisLevel = 0
+
+        // Return to level map
+        gameTimer?.invalidate()
+        let scene = LevelMapScene(size: size)
+        scene.scaleMode = scaleMode
         view?.presentScene(scene, transition: SKTransition.fade(withDuration: 0.5))
     }
 

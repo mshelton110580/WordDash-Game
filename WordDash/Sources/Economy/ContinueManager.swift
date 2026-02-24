@@ -3,7 +3,7 @@ import Foundation
 /// Manages the continue system for failed levels.
 /// Escalating costs: 200 → 300 → 400 coins, max 3 per session.
 final class ContinueManager {
-    private var continueCount: Int = 0
+    private(set) var continueCount: Int = 0
     private var adUsed: Bool = false
 
     /// Reset for a new level session.

@@ -21,6 +21,7 @@ class GameState {
     var maxCascadeReached: Int = 0
     var continueCount: Int = 0
     var adContinueUsed: Bool = false
+    var coinsEarnedThisLevel: Int = 0
 
     // Power-up inventory
     var hintCount: Int = 3
@@ -47,6 +48,7 @@ class GameState {
         maxCascadeReached = 0
         continueCount = 0
         adContinueUsed = false
+        coinsEarnedThisLevel = 0
 
         if config.goalType == .scoreTimed {
             timeRemaining = TimeInterval(config.timeLimitSeconds ?? 60)
