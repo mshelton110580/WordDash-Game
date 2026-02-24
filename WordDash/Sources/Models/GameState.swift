@@ -16,6 +16,11 @@ class GameState {
     var isGameOver: Bool = false
     var isLevelComplete: Bool = false
     var wordSubmitCount: Int = 0
+    var wordsFound: [String] = []
+    var maxStreakReached: Double = 1.0
+    var maxCascadeReached: Int = 0
+    var continueCount: Int = 0
+    var adContinueUsed: Bool = false
 
     // Power-up inventory
     var hintCount: Int = 3
@@ -37,6 +42,11 @@ class GameState {
         isLevelComplete = false
         timerStarted = false
         wordSubmitCount = 0
+        wordsFound = []
+        maxStreakReached = 1.0
+        maxCascadeReached = 0
+        continueCount = 0
+        adContinueUsed = false
 
         if config.goalType == .scoreTimed {
             timeRemaining = TimeInterval(config.timeLimitSeconds ?? 60)
@@ -50,6 +60,7 @@ class GameState {
             let elapsed = now.timeIntervalSince(lastTime)
             if elapsed <= 4.0 {
                 streakMultiplier = min(streakMultiplier + 0.2, 3.0)
+                maxStreakReached = max(maxStreakReached, streakMultiplier)
             } else {
                 streakMultiplier = 1.0
             }

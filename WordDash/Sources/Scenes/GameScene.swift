@@ -54,6 +54,10 @@ class GameScene: SKScene {
     var hintNodes: [SKNode] = []
     var hintedTiles: [TileModel] = []
 
+    // Economy
+    var coinHUDLabel: SKLabelNode!
+    var continueManager = ContinueManager()
+
     // MARK: - Scene Lifecycle
 
     override func didMove(to view: SKView) {
@@ -592,6 +596,9 @@ class GameScene: SKScene {
     }
 
     func processValidWord(_ word: String) {
+        // Track word for coin calculation
+        gameState.wordsFound.append(word)
+
         // Calculate score (letterMultiplier applied inside baseLetterScore)
         let scoreResult = ScoringEngine.shared.calculateScore(tiles: selectedPath, gameState: gameState)
         gameState.score += scoreResult.totalScore
@@ -653,6 +660,7 @@ class GameScene: SKScene {
         // Dual-bomb bonus
         if isDualBomb {
             gameState.cascadeStep += 1
+            gameState.maxCascadeReached = max(gameState.maxCascadeReached, gameState.cascadeStep)
             let bonus = ScoringEngine.shared.boardExplosionBonus(step: gameState.cascadeStep)
             gameState.score += bonus
         }
@@ -722,6 +730,8 @@ class GameScene: SKScene {
             animateBombEffect(at: mine)
 
             // Award explosion points for mine chain
+            gameState.cascadeStep += 1
+            gameState.maxCascadeReached = max(gameState.maxCascadeReached, gameState.cascadeStep)
             let minePts = ScoringEngine.shared.explosionScore(for: affected)
             gameState.score += minePts
 
@@ -1029,6 +1039,15 @@ class GameScene: SKScene {
         streakLabel.text = ""
         hudNode.addChild(streakLabel)
 
+        // Coin display
+        coinHUDLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        coinHUDLabel.fontSize = 16
+        coinHUDLabel.fontColor = SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
+        coinHUDLabel.position = CGPoint(x: size.width - 80, y: hudY - 5)
+        coinHUDLabel.horizontalAlignmentMode = .center
+        coinHUDLabel.text = "🪙 \(CoinManager.shared.balance)"
+        hudNode.addChild(coinHUDLabel)
+
         updateHUD()
     }
 
@@ -1061,6 +1080,9 @@ class GameScene: SKScene {
 
         // Update power-up counts
         updatePowerUpCounts()
+
+        // Update coin display
+        coinHUDLabel?.text = "🪙 \(CoinManager.shared.balance)"
     }
 
     // MARK: - Power-Up Bar
@@ -1362,6 +1384,35 @@ class GameScene: SKScene {
     }
 
     func showLevelCompleteScreen(score: Int, stars: Int, completed: Bool) {
+        // Determine if this is a replay
+        let persistence = PersistenceManager.shared
+        let progress = persistence.loadProgress()
+        let isReplay = progress.levelProgress[levelConfig?.levelNumber ?? 1]?.completed ?? false
+
+        // Calculate remaining time/moves for efficiency bonus
+        let timeRemaining = Int(gameState.timeRemaining)
+        let totalTime = levelConfig?.timeLimitSeconds ?? 60
+        let movesRemaining = (levelConfig?.moveLimit ?? 0) - gameState.movesUsed
+
+        // Calculate coins earned
+        let coinResult = LevelCoinCalculator.calculate(
+            levelNumber: levelConfig?.levelNumber ?? 1,
+            stars: stars,
+            wordsFound: gameState.wordsFound,
+            maxStreakReached: gameState.maxStreakReached,
+            maxCascadeReached: gameState.maxCascadeReached,
+            timeRemaining: timeRemaining,
+            totalTime: totalTime,
+            movesRemaining: movesRemaining,
+            goalType: levelConfig?.goalType ?? .scoreTimed,
+            isReplay: isReplay && completed
+        )
+
+        // Award coins if level completed
+        if completed {
+            CoinManager.shared.addCoins(coinResult.total, reason: .levelReward)
+        }
+
         let overlay = SKShapeNode(rectOf: size)
         overlay.fillColor = SKColor(white: 0.0, alpha: 0.7)
         overlay.position = CGPoint(x: size.width / 2, y: size.height / 2)
@@ -1369,7 +1420,8 @@ class GameScene: SKScene {
         overlay.name = "resultOverlay"
         addChild(overlay)
 
-        let panel = SKShapeNode(rectOf: CGSize(width: 280, height: 320), cornerRadius: 20)
+        let panelHeight: CGFloat = completed ? 440 : 400
+        let panel = SKShapeNode(rectOf: CGSize(width: 300, height: panelHeight), cornerRadius: 20)
         panel.fillColor = SKColor(red: 0.15, green: 0.15, blue: 0.3, alpha: 1.0)
         panel.strokeColor = SKColor(white: 0.5, alpha: 0.5)
         panel.lineWidth = 2
@@ -1391,14 +1443,14 @@ class GameScene: SKScene {
             title.fontColor = .red
         }
         title.fontSize = 28
-        title.position = CGPoint(x: 0, y: 110)
+        title.position = CGPoint(x: 0, y: panelHeight / 2 - 40)
         panel.addChild(title)
 
         // Stars
         let starsText = SKLabelNode(fontNamed: "AvenirNext-Bold")
         starsText.text = String(repeating: "⭐", count: stars) + String(repeating: "☆", count: 3 - stars)
         starsText.fontSize = 36
-        starsText.position = CGPoint(x: 0, y: 60)
+        starsText.position = CGPoint(x: 0, y: panelHeight / 2 - 80)
         panel.addChild(starsText)
 
         // Score
@@ -1406,26 +1458,82 @@ class GameScene: SKScene {
         scoreText.text = "Score: \(score)"
         scoreText.fontSize = 22
         scoreText.fontColor = .white
-        scoreText.position = CGPoint(x: 0, y: 20)
+        scoreText.position = CGPoint(x: 0, y: panelHeight / 2 - 115)
         panel.addChild(scoreText)
+
+        // Coin breakdown (only if completed)
+        if completed {
+            let coinHeaderY = panelHeight / 2 - 145
+            let coinHeader = SKLabelNode(fontNamed: "AvenirNext-Bold")
+            coinHeader.text = "Coins Earned"
+            coinHeader.fontSize = 16
+            coinHeader.fontColor = SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
+            coinHeader.position = CGPoint(x: 0, y: coinHeaderY)
+            panel.addChild(coinHeader)
+
+            var breakdownY = coinHeaderY - 20
+            for transaction in coinResult.transactions {
+                let row = SKLabelNode(fontNamed: "AvenirNext-Regular")
+                row.text = "\(transaction.label): +\(transaction.amount)"
+                row.fontSize = 12
+                row.fontColor = SKColor(white: 0.7, alpha: 1.0)
+                row.position = CGPoint(x: 0, y: breakdownY)
+                panel.addChild(row)
+                breakdownY -= 16
+            }
+
+            let totalLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+            totalLabel.text = "Total: +\(coinResult.total) 🪙"
+            totalLabel.fontSize = 16
+            totalLabel.fontColor = SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
+            totalLabel.position = CGPoint(x: 0, y: breakdownY - 5)
+            panel.addChild(totalLabel)
+        }
+
+        // Buttons
+        var btnY: CGFloat = -panelHeight / 2 + 130
+
+        // Continue button (only if failed and can continue)
+        if !completed && continueManager.canContinue {
+            let cost = continueManager.currentCost
+            let canAfford = CoinManager.shared.canAfford(cost)
+            let continueBtn = createButton(
+                text: canAfford ? "Continue (🪙\(cost))" : "Continue (Need 🪙\(cost))",
+                width: 240, height: 44
+            )
+            continueBtn.position = CGPoint(x: 0, y: btnY + 55)
+            continueBtn.name = canAfford ? "continueBtn" : "continueDisabledBtn"
+            panel.addChild(continueBtn)
+
+            // Ad continue (stub)
+            if continueManager.canUseAdContinue {
+                let adBtn = createButton(text: "▶ Watch Ad to Continue", width: 240, height: 40)
+                adBtn.position = CGPoint(x: 0, y: btnY + 10)
+                adBtn.name = "adContinueBtn"
+                panel.addChild(adBtn)
+                btnY -= 40
+            }
+        }
 
         // Next Level button
         if completed && (levelConfig?.levelNumber ?? 10) < 10 {
             let nextBtn = createButton(text: "Next Level", width: 200, height: 44)
-            nextBtn.position = CGPoint(x: 0, y: -40)
+            nextBtn.position = CGPoint(x: 0, y: btnY)
             nextBtn.name = "nextLevelBtn"
             panel.addChild(nextBtn)
+            btnY -= 50
         }
 
         // Retry button
         let retryBtn = createButton(text: "Retry", width: 200, height: 44)
-        retryBtn.position = CGPoint(x: 0, y: -95)
+        retryBtn.position = CGPoint(x: 0, y: btnY)
         retryBtn.name = "retryBtn"
         panel.addChild(retryBtn)
+        btnY -= 50
 
         // Map button
         let mapBtn = createButton(text: "Level Map", width: 200, height: 44)
-        mapBtn.position = CGPoint(x: 0, y: -145)
+        mapBtn.position = CGPoint(x: 0, y: btnY)
         mapBtn.name = "mapBtn"
         panel.addChild(mapBtn)
 
@@ -1454,6 +1562,26 @@ class GameScene: SKScene {
     func handleResultScreenTap(at location: CGPoint) {
         if let panel = childNode(withName: "resultPanel") {
             let panelLocation = panel.convert(location, from: self)
+
+            // Check Continue
+            if let continueBtn = panel.childNode(withName: "continueBtn") {
+                let btnRect = CGRect(x: continueBtn.position.x - 120, y: continueBtn.position.y - 22,
+                                     width: 240, height: 44)
+                if btnRect.contains(panelLocation) {
+                    continueLevel()
+                    return
+                }
+            }
+
+            // Check Ad Continue
+            if let adBtn = panel.childNode(withName: "adContinueBtn") {
+                let btnRect = CGRect(x: adBtn.position.x - 120, y: adBtn.position.y - 20,
+                                     width: 240, height: 40)
+                if btnRect.contains(panelLocation) {
+                    continueWithAd()
+                    return
+                }
+            }
 
             // Check Next Level
             if let nextBtn = panel.childNode(withName: "nextLevelBtn") {
@@ -1513,6 +1641,73 @@ class GameScene: SKScene {
         let scene = LevelMapScene(size: size)
         scene.scaleMode = scaleMode
         view?.presentScene(scene, transition: SKTransition.fade(withDuration: 0.5))
+    }
+
+    func continueLevel() {
+        guard continueManager.continueWithCoins() else { return }
+
+        // Remove result overlay
+        childNode(withName: "resultOverlay")?.removeFromParent()
+        childNode(withName: "resultPanel")?.removeFromParent()
+
+        // Reset game over state
+        gameState.isGameOver = false
+
+        // Apply continue bonus
+        if let config = levelConfig {
+            let bonus = continueManager.continueBonus(for: config.goalType)
+            if bonus.time > 0 {
+                gameState.timeRemaining += TimeInterval(bonus.time)
+                startTimerIfNeeded()
+            }
+            if bonus.moves > 0 {
+                // Reduce movesUsed to grant extra moves
+                gameState.movesUsed = max(0, gameState.movesUsed - bonus.moves)
+            }
+        }
+
+        updateHUD()
+    }
+
+    func continueWithAd() {
+        guard continueManager.continueWithAd() else { return }
+
+        // Remove result overlay
+        childNode(withName: "resultOverlay")?.removeFromParent()
+        childNode(withName: "resultPanel")?.removeFromParent()
+
+        // Reset game over state
+        gameState.isGameOver = false
+
+        // Apply continue bonus
+        if let config = levelConfig {
+            let bonus = continueManager.continueBonus(for: config.goalType)
+            if bonus.time > 0 {
+                gameState.timeRemaining += TimeInterval(bonus.time)
+                startTimerIfNeeded()
+            }
+            if bonus.moves > 0 {
+                gameState.movesUsed = max(0, gameState.movesUsed - bonus.moves)
+            }
+        }
+
+        updateHUD()
+    }
+
+    func startTimerIfNeeded() {
+        guard gameTimer == nil || !(gameTimer?.isValid ?? false) else { return }
+        gameTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self = self, let state = self.gameState else { return }
+            if state.timerStarted {
+                state.timeRemaining -= 1
+                if state.timeRemaining <= 0 {
+                    state.timeRemaining = 0
+                    self.gameTimer?.invalidate()
+                    self.checkLevelCompletion()
+                }
+                self.updateHUD()
+            }
+        }
     }
 
     // Override touchesBegan for result screen

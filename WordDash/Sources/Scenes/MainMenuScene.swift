@@ -4,12 +4,26 @@ import SpriteKit
 
 class MainMenuScene: SKScene {
 
+    private var coinLabel: SKLabelNode!
+
     override func didMove(to view: SKView) {
         backgroundColor = SKColor(red: 0.1, green: 0.1, blue: 0.2, alpha: 1.0)
         setupUI()
+        checkDailyLogin()
+        NotificationCenter.default.addObserver(self, selector: #selector(updateCoinDisplay), name: .coinBalanceChanged, object: nil)
     }
 
     func setupUI() {
+        // Coin display (top right)
+        coinLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        coinLabel.text = "🪙 \(CoinManager.shared.balance)"
+        coinLabel.fontSize = 18
+        coinLabel.fontColor = SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)
+        coinLabel.horizontalAlignmentMode = .right
+        coinLabel.position = CGPoint(x: size.width - 20, y: size.height - 40)
+        coinLabel.zPosition = 10
+        addChild(coinLabel)
+
         // Title
         let titleLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
         titleLabel.text = "WordDash"
@@ -32,8 +46,8 @@ class MainMenuScene: SKScene {
         playBtn.name = "playButton"
         addChild(playBtn)
 
-        // Store Button (stub)
-        let storeBtn = createMenuButton(text: "Store", color: SKColor(red: 0.3, green: 0.5, blue: 0.8, alpha: 1.0))
+        // Store Button (now functional)
+        let storeBtn = createMenuButton(text: "🛒 Store", color: SKColor(red: 0.3, green: 0.5, blue: 0.8, alpha: 1.0))
         storeBtn.position = CGPoint(x: size.width / 2, y: size.height * 0.35)
         storeBtn.name = "storeButton"
         addChild(storeBtn)
@@ -46,7 +60,7 @@ class MainMenuScene: SKScene {
 
         // Version label
         let versionLabel = SKLabelNode(fontNamed: "AvenirNext-Regular")
-        versionLabel.text = "MVP v1.0"
+        versionLabel.text = "MVP v1.1"
         versionLabel.fontSize = 12
         versionLabel.fontColor = SKColor(white: 0.4, alpha: 1.0)
         versionLabel.position = CGPoint(x: size.width / 2, y: 30)
@@ -54,6 +68,21 @@ class MainMenuScene: SKScene {
 
         // Decorative tiles animation
         addDecorativeTiles()
+    }
+
+    func checkDailyLogin() {
+        let result = DailyLoginManager.shared.checkDailyReward()
+        if result.canClaim {
+            let overlay = DailyLoginOverlay(size: size, day: result.day, amount: result.amount) { [weak self] in
+                self?.updateCoinDisplay()
+            }
+            overlay.zPosition = 200
+            addChild(overlay)
+        }
+    }
+
+    @objc func updateCoinDisplay() {
+        coinLabel?.text = "🪙 \(CoinManager.shared.balance)"
     }
 
     func createMenuButton(text: String, color: SKColor) -> SKNode {
@@ -115,7 +144,9 @@ class MainMenuScene: SKScene {
             scene.scaleMode = scaleMode
             view?.presentScene(scene, transition: SKTransition.fade(withDuration: 0.5))
         } else if isButtonTapped(name: "storeButton", at: location) {
-            showStoreStub()
+            let scene = StoreScene(size: size)
+            scene.scaleMode = scaleMode
+            view?.presentScene(scene, transition: SKTransition.fade(withDuration: 0.3))
         } else if isButtonTapped(name: "settingsButton", at: location) {
             showSettings()
         }
@@ -127,51 +158,13 @@ class MainMenuScene: SKScene {
         return rect.contains(location)
     }
 
-    func showStoreStub() {
-        // Simple popup
-        let overlay = SKShapeNode(rectOf: size)
-        overlay.fillColor = SKColor(white: 0, alpha: 0.6)
-        overlay.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        overlay.zPosition = 100
-        overlay.name = "storeOverlay"
-        addChild(overlay)
-
-        let panel = SKShapeNode(rectOf: CGSize(width: 250, height: 150), cornerRadius: 15)
-        panel.fillColor = SKColor(red: 0.15, green: 0.15, blue: 0.3, alpha: 1.0)
-        panel.strokeColor = SKColor(white: 0.5, alpha: 0.5)
-        panel.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        panel.zPosition = 101
-        panel.name = "storePanel"
-        addChild(panel)
-
-        let label = SKLabelNode(fontNamed: "AvenirNext-Medium")
-        label.text = "Store Coming Soon!"
-        label.fontSize = 20
-        label.fontColor = .white
-        label.position = CGPoint(x: 0, y: 20)
-        panel.addChild(label)
-
-        let closeBtn = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        closeBtn.text = "OK"
-        closeBtn.fontSize = 18
-        closeBtn.fontColor = .yellow
-        closeBtn.position = CGPoint(x: 0, y: -30)
-        closeBtn.name = "closeStore"
-        panel.addChild(closeBtn)
-
-        // Auto-close on tap
-        overlay.run(SKAction.sequence([
-            SKAction.wait(forDuration: 2.0),
-            SKAction.run { [weak self] in
-                self?.childNode(withName: "storeOverlay")?.removeFromParent()
-                self?.childNode(withName: "storePanel")?.removeFromParent()
-            }
-        ]))
-    }
-
     func showSettings() {
         let scene = SettingsScene(size: size)
         scene.scaleMode = scaleMode
         view?.presentScene(scene, transition: SKTransition.fade(withDuration: 0.3))
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 }
