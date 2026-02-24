@@ -25,7 +25,22 @@ class ScoringEngine {
         return GameConstants.letterValues[Character(character.uppercased())] ?? 0
     }
 
+    /// Base letter score for a word — applies letterMultiplier (2x/3x) per tile
     func baseLetterScore(for tiles: [TileModel]) -> Int {
+        var total = 0
+        for tile in tiles {
+            if tile.specialType == .wildcard {
+                total += GameConstants.wildcardBasePoints
+            } else {
+                let baseVal = letterValue(for: tile.letter)
+                total += baseVal * tile.letterMultiplier
+            }
+        }
+        return total
+    }
+
+    /// Explosion score for tiles destroyed by power-ups — NO letterMultiplier applied
+    func explosionScore(for tiles: [TileModel]) -> Int {
         var total = 0
         for tile in tiles {
             if tile.specialType == .wildcard {
@@ -75,5 +90,11 @@ class ScoringEngine {
 
     func cascadeScore(step: Int) -> Int {
         return GameConstants.cascadeBonus(step: step)
+    }
+
+    // MARK: - Dual-Bomb Board Explosion Bonus
+
+    func boardExplosionBonus(step: Int) -> Int {
+        return GameConstants.cascadeBonus(step: step) * 3
     }
 }

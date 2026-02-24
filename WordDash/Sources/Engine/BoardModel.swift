@@ -231,9 +231,12 @@ class BoardModel {
 
     // MARK: - Gravity & Refill
 
-    func applyGravityAndRefill(specialTileSpawn: (row: Int, col: Int, type: SpecialTileType)? = nil) -> GravityResult {
+    func applyGravityAndRefill(specialTileSpawn: (row: Int, col: Int, type: SpecialTileType)? = nil, wordSubmitCount: Int = 0) -> GravityResult {
         var movedTiles: [(tile: TileModel, fromRow: Int, toRow: Int)] = []
         var newTiles: [TileModel] = []
+
+        // Only spawn multiplier tiles every 3rd word to avoid flooding
+        let canSpawnMultipliers = wordSubmitCount >= 2 && wordSubmitCount % 3 == 0
 
         for c in 0..<cols {
             // Collect non-nil tiles from bottom to top
@@ -270,6 +273,17 @@ class BoardModel {
                 } else {
                     let letter = letterGenerator.randomLetter()
                     let tile = TileModel(letter: letter, row: r, col: c)
+
+                    // Random chance for double/triple letter multiplier on new tiles
+                    if canSpawnMultipliers && tile.specialType == nil {
+                        let roll = Double.random(in: 0..<1)
+                        if roll < 0.06 {
+                            tile.letterMultiplier = 3  // ~6% chance for triple
+                        } else if roll < 0.18 {
+                            tile.letterMultiplier = 2  // ~12% chance for double
+                        }
+                    }
+
                     grid[r][c] = tile
                     newTiles.append(tile)
                 }
@@ -277,6 +291,27 @@ class BoardModel {
         }
 
         return GravityResult(movedTiles: movedTiles, newTiles: newTiles)
+    }
+
+    // MARK: - Board Explosion (Dual-Bomb)
+
+    /// Returns all non-nil tiles on the board for a full board explosion
+    func allTilesOnBoard() -> [TileModel] {
+        var tiles: [TileModel] = []
+        for r in 0..<rows {
+            for c in 0..<cols {
+                if let tile = grid[r][c] {
+                    tiles.append(tile)
+                }
+            }
+        }
+        return tiles
+    }
+
+    /// Check if a word path contains 2+ bomb tiles (triggers board explosion)
+    func hasDualBombs(in path: [TileModel]) -> Bool {
+        let bombCount = path.filter { $0.specialType == .bomb }.count
+        return bombCount >= 2
     }
 
     // MARK: - Count Ice Tiles

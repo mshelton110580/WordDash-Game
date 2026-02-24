@@ -26,6 +26,7 @@ class TileModel: Equatable, Hashable {
     var specialType: SpecialTileType?
     var iceState: IceState
     var hasMineOverlay: Bool
+    var letterMultiplier: Int  // 1 = normal, 2 = double letter, 3 = triple letter
 
     init(letter: Character, row: Int, col: Int, specialType: SpecialTileType? = nil, iceState: IceState = .none) {
         self.id = UUID()
@@ -35,6 +36,7 @@ class TileModel: Equatable, Hashable {
         self.specialType = specialType
         self.iceState = iceState
         self.hasMineOverlay = false
+        self.letterMultiplier = 1
     }
 
     var isSpecial: Bool {

@@ -27,8 +27,9 @@ class GameScene: SKScene {
     var selectionLine: SKShapeNode?
     var wordLabel: SKLabelNode!
     var isDragging = false
+    var lastDragPoint: CGPoint?
 
-    // Power-up activation state
+    // Power-up activation state (no longer used for tap-to-target, but kept for hint)
     var activePowerUp: PowerUpType?
     var powerUpButtons: [PowerUpType: SKNode] = [:]
     var powerUpCountLabels: [PowerUpType: SKLabelNode] = [:]
@@ -49,8 +50,9 @@ class GameScene: SKScene {
     var boardOriginX: CGFloat = 0
     var boardOriginY: CGFloat = 0
 
-    // Hint highlight
+    // Hint highlight — persists until next word
     var hintNodes: [SKNode] = []
+    var hintedTiles: [TileModel] = []
 
     // MARK: - Scene Lifecycle
 
@@ -176,6 +178,8 @@ class GameScene: SKScene {
             case .wildcard:
                 bg.fillColor = SKColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 1.0)
             }
+            // Glow effect for special tiles
+            bg.glowWidth = 4
         } else {
             bg.fillColor = SKColor(red: 0.25, green: 0.3, blue: 0.5, alpha: 1.0)
         }
@@ -239,7 +243,7 @@ class GameScene: SKScene {
         label.zPosition = 5
         container.addChild(label)
 
-        // Point value (small)
+        // Point value (small) — bottom right
         if tile.specialType == nil {
             let pointLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
             let pts = GameConstants.letterValues[tile.letter] ?? 0
@@ -251,6 +255,53 @@ class GameScene: SKScene {
             pointLabel.horizontalAlignmentMode = .center
             pointLabel.zPosition = 5
             container.addChild(pointLabel)
+        }
+
+        // Special type label — bottom center
+        if let special = tile.specialType {
+            let specialLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+            let labels: [SpecialTileType: String] = [
+                .bomb: "BOMB", .laser: "LASER", .crossLaser: "CROSS", .wildcard: "WILD", .mine: "MINE"
+            ]
+            specialLabel.text = labels[special] ?? ""
+            specialLabel.fontSize = tileSize * 0.14
+            specialLabel.fontColor = .white
+            specialLabel.position = CGPoint(x: 0, y: -tileSize * 0.35)
+            specialLabel.verticalAlignmentMode = .center
+            specialLabel.horizontalAlignmentMode = .center
+            specialLabel.zPosition = 6
+            container.addChild(specialLabel)
+        }
+
+        // Letter multiplier badge (2x / 3x) — top right
+        if tile.letterMultiplier > 1 {
+            let badgeSize = CGSize(width: tileSize * 0.38, height: tileSize * 0.22)
+            let badgePos = CGPoint(x: tileSize * 0.2, y: tileSize * 0.3)
+
+            let badge = SKShapeNode(rectOf: badgeSize, cornerRadius: 4)
+            badge.position = badgePos
+            badge.zPosition = 7
+
+            if tile.letterMultiplier == 3 {
+                badge.fillColor = SKColor(red: 0.96, green: 0.25, blue: 0.37, alpha: 0.9)
+                badge.strokeColor = SKColor(red: 1.0, green: 0.4, blue: 0.5, alpha: 1.0)
+            } else {
+                badge.fillColor = SKColor(red: 0.96, green: 0.62, blue: 0.04, alpha: 0.9)
+                badge.strokeColor = SKColor(red: 1.0, green: 0.75, blue: 0.2, alpha: 1.0)
+            }
+            badge.lineWidth = 1
+            badge.glowWidth = 3
+            container.addChild(badge)
+
+            let badgeLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+            badgeLabel.text = "\(tile.letterMultiplier)x"
+            badgeLabel.fontSize = tileSize * 0.16
+            badgeLabel.fontColor = .white
+            badgeLabel.position = badgePos
+            badgeLabel.verticalAlignmentMode = .center
+            badgeLabel.horizontalAlignmentMode = .center
+            badgeLabel.zPosition = 8
+            container.addChild(badgeLabel)
         }
 
         return container
@@ -269,6 +320,69 @@ class GameScene: SKScene {
         return boardModel.tileAt(row: row, col: col)
     }
 
+    /// Improved tile detection: find nearest tile center within radius, with directional bias
+    func nearestAdjacentTile(to point: CGPoint, from lastTile: TileModel) -> TileModel? {
+        let boardPoint = CGPoint(x: point.x - boardOriginX, y: point.y - boardOriginY)
+
+        // Get all adjacent tiles
+        var candidates: [(tile: TileModel, dist: CGFloat, isDiagonal: Bool)] = []
+        for dr in -1...1 {
+            for dc in -1...1 {
+                if dr == 0 && dc == 0 { continue }
+                let r = lastTile.row + dr
+                let c = lastTile.col + dc
+                guard let tile = boardModel.tileAt(row: r, col: c) else { continue }
+                if selectedPath.contains(where: { $0.id == tile.id }) { continue }
+
+                let tilePos = CGPoint(
+                    x: CGFloat(c) * tileSize + tileSize / 2,
+                    y: CGFloat(boardModel.rows - 1 - r) * tileSize + tileSize / 2
+                )
+                let dist = hypot(boardPoint.x - tilePos.x, boardPoint.y - tilePos.y)
+                let isDiag = dr != 0 && dc != 0
+                candidates.append((tile: tile, dist: dist, isDiagonal: isDiag))
+            }
+        }
+
+        // Orthogonal tiles: larger hit zone (48% of tile size)
+        // Diagonal tiles: tighter hit zone (32% of tile size) + require drag direction alignment
+        let orthoRadius = tileSize * 0.48
+        let diagRadius = tileSize * 0.32
+
+        // Check drag direction for diagonal intent
+        var hasDiagonalIntent = false
+        if let lastPoint = lastDragPoint {
+            let dx = point.x - lastPoint.x
+            let dy = point.y - lastPoint.y
+            let dragLen = hypot(dx, dy)
+            if dragLen > 5 {
+                let normDx = dx / dragLen
+                let normDy = dy / dragLen
+                // Diagonal intent: both components are significant (> 0.5)
+                hasDiagonalIntent = abs(normDx) > 0.5 && abs(normDy) > 0.5
+            }
+        }
+
+        var bestTile: TileModel?
+        var bestDist: CGFloat = .greatestFiniteMagnitude
+
+        for candidate in candidates {
+            let maxRadius = candidate.isDiagonal ? diagRadius : orthoRadius
+
+            // Diagonal tiles also require diagonal drag intent
+            if candidate.isDiagonal && !hasDiagonalIntent {
+                continue
+            }
+
+            if candidate.dist < maxRadius && candidate.dist < bestDist {
+                bestDist = candidate.dist
+                bestTile = candidate.tile
+            }
+        }
+
+        return bestTile
+    }
+
     // MARK: - Touch Handling
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -281,18 +395,12 @@ class GameScene: SKScene {
             startTimer()
         }
 
+        // Check result screen first
+        if checkResultScreenTap(location) { return }
+
         // Check if power-up button tapped
         if let powerUp = checkPowerUpTap(at: location) {
             handlePowerUpActivation(powerUp)
-            return
-        }
-
-        // Check if active power-up needs a target
-        if let active = activePowerUp {
-            if let tile = tileAt(point: location) {
-                executePowerUp(active, on: tile)
-            }
-            activePowerUp = nil
             return
         }
 
@@ -304,12 +412,12 @@ class GameScene: SKScene {
 
         // Start drag
         guard !gameState.isGameOver && !gameState.isLevelComplete else { return }
-        clearHintHighlights()
 
         if let tile = tileAt(point: location) {
             isDragging = true
             selectedPath = [tile]
             dragDirections = []
+            lastDragPoint = location
             updateSelectionVisuals()
         }
     }
@@ -318,35 +426,40 @@ class GameScene: SKScene {
         guard isDragging, let touch = touches.first else { return }
         let location = touch.location(in: self)
 
-        guard let tile = tileAt(point: location) else { return }
+        guard let lastTile = selectedPath.last else { return }
 
-        // Backtracking: if dragged back to previous tile
-        if selectedPath.count >= 2 && tile.id == selectedPath[selectedPath.count - 2].id {
-            selectedPath.removeLast()
-            if !dragDirections.isEmpty { dragDirections.removeLast() }
-            updateSelectionVisuals()
-            return
+        // Check for backtracking: if pointer is near the second-to-last tile
+        if selectedPath.count >= 2 {
+            let prevTile = selectedPath[selectedPath.count - 2]
+            let prevPos = positionForTile(row: prevTile.row, col: prevTile.col)
+            let boardPoint = CGPoint(x: location.x - boardOriginX, y: location.y - boardOriginY)
+            let distToPrev = hypot(boardPoint.x - prevPos.x, boardPoint.y - prevPos.y)
+            if distToPrev < tileSize * 0.4 {
+                selectedPath.removeLast()
+                if !dragDirections.isEmpty { dragDirections.removeLast() }
+                lastDragPoint = location
+                updateSelectionVisuals()
+                return
+            }
         }
 
-        // Already in path
-        if selectedPath.contains(where: { $0.id == tile.id }) { return }
+        // Use improved adjacent tile detection
+        if let nextTile = nearestAdjacentTile(to: location, from: lastTile) {
+            let dx = nextTile.col - lastTile.col
+            let dy = nextTile.row - lastTile.row
+            dragDirections.append((dx: dx, dy: dy))
+            selectedPath.append(nextTile)
+            lastDragPoint = location
+            updateSelectionVisuals()
+        }
 
-        // Check adjacency
-        guard let lastTile = selectedPath.last else { return }
-        guard BoardModel.areAdjacent(lastTile, tile) else { return }
-
-        // Record drag direction
-        let dx = tile.col - lastTile.col
-        let dy = tile.row - lastTile.row
-        dragDirections.append((dx: dx, dy: dy))
-
-        selectedPath.append(tile)
-        updateSelectionVisuals()
+        lastDragPoint = location
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard isDragging else { return }
         isDragging = false
+        lastDragPoint = nil
 
         if selectedPath.count >= GameConstants.minWordLength {
             attemptWord()
@@ -358,6 +471,7 @@ class GameScene: SKScene {
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         isDragging = false
+        lastDragPoint = nil
         clearSelection()
     }
 
@@ -375,7 +489,6 @@ class GameScene: SKScene {
         // Highlight selected tiles
         for (_, sprite) in tileSprites {
             if let bg = sprite.childNode(withName: "tileBG") as? SKShapeNode {
-                // Reset non-selected tiles
                 bg.glowWidth = 0
             }
         }
@@ -468,12 +581,18 @@ class GameScene: SKScene {
             return
         }
 
+        // Valid word — clear hint highlights
+        clearHintHighlights()
+
+        // Increment word submit count
+        gameState.wordSubmitCount += 1
+
         // Valid word!
         processValidWord(resolvedWord)
     }
 
     func processValidWord(_ word: String) {
-        // Calculate score
+        // Calculate score (letterMultiplier applied inside baseLetterScore)
         let scoreResult = ScoringEngine.shared.calculateScore(tiles: selectedPath, gameState: gameState)
         gameState.score += scoreResult.totalScore
 
@@ -490,20 +609,59 @@ class GameScene: SKScene {
             (row: lastTile.row, col: lastTile.col, type: $0)
         }
 
-        // Collect special tile effects
-        let specialEvents = boardModel.processSpecialEffects(wordTiles: selectedPath, dragDirections: dragDirections)
+        // Check for dual-bomb board explosion
+        let isDualBomb = boardModel.hasDualBombs(in: selectedPath)
 
-        // Clear word tiles with explosion
-        var allTilesToClear = selectedPath
-        for event in specialEvents {
-            for tile in event.tiles {
-                if !allTilesToClear.contains(where: { $0.id == tile.id }) {
-                    allTilesToClear.append(tile)
+        // Collect special tile effects
+        let specialEvents: [ClearEvent]
+        if isDualBomb {
+            // Board explosion — skip individual bomb effects, but keep non-bomb effects
+            specialEvents = boardModel.processSpecialEffects(wordTiles: selectedPath, dragDirections: dragDirections)
+                .filter { event in
+                    switch event.reason {
+                    case .bomb: return false
+                    default: return true
+                    }
+                }
+        } else {
+            specialEvents = boardModel.processSpecialEffects(wordTiles: selectedPath, dragDirections: dragDirections)
+        }
+
+        // Determine all tiles to clear
+        var allTilesToClear: [TileModel]
+        if isDualBomb {
+            // Clear entire board
+            allTilesToClear = boardModel.allTilesOnBoard()
+        } else {
+            allTilesToClear = selectedPath
+            for event in specialEvents {
+                for tile in event.tiles {
+                    if !allTilesToClear.contains(where: { $0.id == tile.id }) {
+                        allTilesToClear.append(tile)
+                    }
                 }
             }
         }
 
+        // Award explosion points for all tiles destroyed by special effects (not the word tiles themselves)
+        let explosionTiles = allTilesToClear.filter { tile in
+            !selectedPath.contains(where: { $0.id == tile.id })
+        }
+        let explosionPts = ScoringEngine.shared.explosionScore(for: explosionTiles)
+        gameState.score += explosionPts
+
+        // Dual-bomb bonus
+        if isDualBomb {
+            gameState.cascadeStep += 1
+            let bonus = ScoringEngine.shared.boardExplosionBonus(step: gameState.cascadeStep)
+            gameState.score += bonus
+        }
+
         // Animate explosions
+        if isDualBomb {
+            animateBoardExplosion()
+        }
+
         animateExplosions(tiles: allTilesToClear) { [weak self] in
             guard let self = self else { return }
 
@@ -512,7 +670,7 @@ class GameScene: SKScene {
 
             // Track ice clears
             for tile in clearResult.iceHits {
-                if !tile.isIced { // ice was fully cleared
+                if !tile.isIced {
                     self.gameState.iceTilesCleared += 1
                 }
             }
@@ -525,8 +683,11 @@ class GameScene: SKScene {
                 return
             }
 
-            // Apply gravity and refill
-            let gravityResult = self.boardModel.applyGravityAndRefill(specialTileSpawn: spawnInfo)
+            // Apply gravity and refill (with multiplier spawning)
+            let gravityResult = self.boardModel.applyGravityAndRefill(
+                specialTileSpawn: spawnInfo,
+                wordSubmitCount: self.gameState.wordSubmitCount
+            )
             self.animateGravityAndRefill(result: gravityResult) { [weak self] in
                 self?.clearSelection()
                 self?.checkLevelCompletion()
@@ -560,6 +721,10 @@ class GameScene: SKScene {
             let affected = boardModel.tilesAffectedByMine(center: mine)
             animateBombEffect(at: mine)
 
+            // Award explosion points for mine chain
+            let minePts = ScoringEngine.shared.explosionScore(for: affected)
+            gameState.score += minePts
+
             animateExplosions(tiles: affected) { [weak self] in
                 guard let self = self else { return }
                 let result = self.boardModel.clearTiles(affected)
@@ -570,7 +735,9 @@ class GameScene: SKScene {
                     self.gameState.cascadeStep += 1
                     self.processMineChain(mines: moreMines)
                 } else {
-                    let gravityResult = self.boardModel.applyGravityAndRefill()
+                    let gravityResult = self.boardModel.applyGravityAndRefill(
+                        wordSubmitCount: self.gameState.wordSubmitCount
+                    )
                     self.animateGravityAndRefill(result: gravityResult) { [weak self] in
                         self?.clearSelection()
                         self?.checkLevelCompletion()
@@ -701,6 +868,48 @@ class GameScene: SKScene {
             SKAction.removeFromParent()
         ])
         circle.run(expand)
+    }
+
+    /// Board-wide explosion visual for dual-bomb
+    func animateBoardExplosion() {
+        // Screen flash
+        let flash = SKShapeNode(rectOf: size)
+        flash.fillColor = SKColor(red: 1.0, green: 0.9, blue: 0.5, alpha: 0.8)
+        flash.strokeColor = .clear
+        flash.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        flash.zPosition = 500
+        addChild(flash)
+
+        let flashAction = SKAction.sequence([
+            SKAction.fadeOut(withDuration: 0.4),
+            SKAction.removeFromParent()
+        ])
+        flash.run(flashAction)
+
+        // Massive particle burst from center
+        let centerPos = CGPoint(
+            x: tileSize * CGFloat(boardModel.cols) / 2,
+            y: tileSize * CGFloat(boardModel.rows) / 2
+        )
+        for _ in 0..<20 {
+            let particle = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...8))
+            particle.fillColor = [SKColor.yellow, .orange, .red, .white].randomElement()!
+            particle.strokeColor = .clear
+            particle.position = centerPos
+            particle.zPosition = 70
+            boardNode.addChild(particle)
+
+            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let distance = CGFloat.random(in: 80...200)
+            let dx = cos(angle) * distance
+            let dy = sin(angle) * distance
+
+            let move = SKAction.moveBy(x: dx, y: dy, duration: 0.5)
+            move.timingMode = .easeOut
+            let fade = SKAction.fadeOut(withDuration: 0.5)
+            let remove = SKAction.removeFromParent()
+            particle.run(SKAction.sequence([SKAction.group([move, fade]), remove]))
+        }
     }
 
     func animateGravityAndRefill(result: GravityResult, completion: @escaping () -> Void) {
@@ -862,8 +1071,8 @@ class GameScene: SKScene {
         powerUpBar.zPosition = 200
         addChild(powerUpBar)
 
-        let types: [PowerUpType] = [.hint, .bomb, .laser, .crossLaser, .mine]
-        let buttonWidth: CGFloat = 60
+        let types: [PowerUpType] = [.hint, .shuffle, .bomb, .laser, .crossLaser, .mine]
+        let buttonWidth: CGFloat = 55
         let totalWidth = buttonWidth * CGFloat(types.count)
         let startX = (size.width - totalWidth) / 2 + buttonWidth / 2
 
@@ -879,7 +1088,7 @@ class GameScene: SKScene {
         let container = SKNode()
         container.name = "powerup_\(type.rawValue)"
 
-        let bg = SKShapeNode(rectOf: CGSize(width: 50, height: 50), cornerRadius: 8)
+        let bg = SKShapeNode(rectOf: CGSize(width: 46, height: 46), cornerRadius: 8)
         bg.fillColor = SKColor(white: 0.2, alpha: 0.9)
         bg.strokeColor = SKColor(white: 0.5, alpha: 0.5)
         bg.lineWidth = 1
@@ -891,6 +1100,7 @@ class GameScene: SKScene {
 
         switch type {
         case .hint: icon.text = "💡"
+        case .shuffle: icon.text = "🔀"
         case .bomb: icon.text = "💣"
         case .laser: icon.text = "⚡"
         case .crossLaser: icon.text = "✚"
@@ -903,7 +1113,7 @@ class GameScene: SKScene {
         let countLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
         countLabel.fontSize = 12
         countLabel.fontColor = .yellow
-        countLabel.position = CGPoint(x: 18, y: -18)
+        countLabel.position = CGPoint(x: 16, y: -16)
         countLabel.zPosition = 2
         countLabel.name = "countLabel"
         container.addChild(countLabel)
@@ -915,6 +1125,7 @@ class GameScene: SKScene {
     func updatePowerUpCounts() {
         guard let state = gameState else { return }
         powerUpCountLabels[.hint]?.text = "\(state.hintCount)"
+        powerUpCountLabels[.shuffle]?.text = "\(state.shuffleCount)"
         powerUpCountLabels[.bomb]?.text = "\(state.bombCount)"
         powerUpCountLabels[.laser]?.text = "\(state.laserCount)"
         powerUpCountLabels[.crossLaser]?.text = "\(state.crossLaserCount)"
@@ -922,11 +1133,11 @@ class GameScene: SKScene {
     }
 
     func checkPowerUpTap(at location: CGPoint) -> PowerUpType? {
-        let types: [PowerUpType] = [.hint, .bomb, .laser, .crossLaser, .mine]
+        let types: [PowerUpType] = [.hint, .shuffle, .bomb, .laser, .crossLaser, .mine]
         for type in types {
             if let btn = powerUpButtons[type] {
                 let btnPos = btn.convert(CGPoint.zero, to: self)
-                let rect = CGRect(x: btnPos.x - 25, y: btnPos.y - 25, width: 50, height: 50)
+                let rect = CGRect(x: btnPos.x - 23, y: btnPos.y - 23, width: 46, height: 46)
                 if rect.contains(location) {
                     return type
                 }
@@ -938,91 +1149,69 @@ class GameScene: SKScene {
     func handlePowerUpActivation(_ type: PowerUpType) {
         guard powerUpSystem.canUse(type) else { return }
 
-        if type == .hint {
-            // Execute immediately
+        switch type {
+        case .hint:
+            // Execute immediately — show hint path that persists until next word
             if let path = powerUpSystem.executeHint() {
                 showHintHighlight(path: path)
             }
-        } else {
-            // Activate for next tap
-            activePowerUp = type
-            showPowerUpActivationIndicator(type)
-        }
-    }
 
-    func executePowerUp(_ type: PowerUpType, on tile: TileModel) {
-        var tilesToClear: [TileModel]?
+        case .shuffle:
+            // Execute immediately — shuffle all normal tiles
+            if powerUpSystem.executeShuffle() {
+                renderBoard()
+            }
 
-        switch type {
         case .bomb:
-            tilesToClear = powerUpSystem.executeBomb(at: tile)
-            if tilesToClear != nil { animateBombEffect(at: tile) }
+            // Place bomb tile randomly on board
+            if let tile = powerUpSystem.placeBomb() {
+                refreshTileSprite(for: tile)
+            }
+
         case .laser:
-            tilesToClear = powerUpSystem.executeLaser(at: tile, isRow: true)
-            if tilesToClear != nil { animateLaserEffect(at: tile, isRow: true) }
+            // Place laser tile randomly on board
+            if let tile = powerUpSystem.placeLaser() {
+                refreshTileSprite(for: tile)
+            }
+
         case .crossLaser:
-            tilesToClear = powerUpSystem.executeCrossLaser(at: tile)
-            if tilesToClear != nil {
-                animateLaserEffect(at: tile, isRow: true)
-                animateLaserEffect(at: tile, isRow: false)
+            // Place cross laser tile randomly on board
+            if let tile = powerUpSystem.placeCrossLaser() {
+                refreshTileSprite(for: tile)
             }
+
         case .mine:
-            let _ = powerUpSystem.placeMine(on: tile)
-            // Refresh tile sprite to show mine overlay
-            if let sprite = tileSprites[tile.id] {
-                let mine = SKShapeNode(circleOfRadius: 6)
-                mine.fillColor = .red
-                mine.strokeColor = .darkGray
-                mine.position = CGPoint(x: tileSize / 2 - 10, y: -tileSize / 2 + 10)
-                mine.zPosition = 3
-                sprite.addChild(mine)
-            }
-            updateHUD()
-            return
-        case .hint:
-            return
-        }
-
-        if let tiles = tilesToClear {
-            gameState.movesUsed += 1
-            animateExplosions(tiles: tiles) { [weak self] in
-                guard let self = self else { return }
-                let clearResult = self.boardModel.clearTiles(tiles)
-
-                for tile in clearResult.iceHits where !tile.isIced {
-                    self.gameState.iceTilesCleared += 1
-                }
-
-                let gravityResult = self.boardModel.applyGravityAndRefill()
-                self.animateGravityAndRefill(result: gravityResult) { [weak self] in
-                    self?.checkLevelCompletion()
-                    self?.updateHUD()
-                }
+            // Place mine overlay randomly on board
+            if let tile = powerUpSystem.placeMine() {
+                refreshTileSprite(for: tile)
             }
         }
+
+        updateHUD()
     }
 
-    func showPowerUpActivationIndicator(_ type: PowerUpType) {
-        // Simple visual indicator
-        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        label.text = "Tap a tile to use \(type.rawValue)"
-        label.fontSize = 16
-        label.fontColor = .yellow
-        label.position = CGPoint(x: size.width / 2, y: boardOriginY - 20)
-        label.zPosition = 300
-        label.name = "powerUpIndicator"
-        addChild(label)
+    /// Refresh a single tile's sprite after its properties changed
+    func refreshTileSprite(for tile: TileModel) {
+        if let oldSprite = tileSprites[tile.id] {
+            oldSprite.removeFromParent()
+        }
+        let newSprite = createTileSprite(for: tile)
+        boardNode.addChild(newSprite)
+        tileSprites[tile.id] = newSprite
 
-        let fade = SKAction.sequence([
-            SKAction.wait(forDuration: 3.0),
-            SKAction.fadeOut(withDuration: 0.5),
-            SKAction.removeFromParent()
+        // Flash animation to draw attention
+        let flash = SKAction.sequence([
+            SKAction.scale(to: 1.2, duration: 0.15),
+            SKAction.scale(to: 1.0, duration: 0.15)
         ])
-        label.run(fade)
+        newSprite.run(flash)
     }
+
+    // MARK: - Hint Highlights (persist until next word)
 
     func showHintHighlight(path: [TileModel]) {
         clearHintHighlights()
+        hintedTiles = path
 
         for tile in path {
             if let sprite = tileSprites[tile.id] {
@@ -1035,7 +1224,7 @@ class GameScene: SKScene {
                 sprite.addChild(glow)
                 hintNodes.append(glow)
 
-                // Pulse animation
+                // Pulse animation — persists indefinitely
                 let pulse = SKAction.repeatForever(SKAction.sequence([
                     SKAction.fadeAlpha(to: 0.1, duration: 0.5),
                     SKAction.fadeAlpha(to: 0.5, duration: 0.5)
@@ -1044,9 +1233,33 @@ class GameScene: SKScene {
             }
         }
 
-        // Auto-remove after 3 seconds
-        run(SKAction.wait(forDuration: 3.0)) { [weak self] in
-            self?.clearHintHighlights()
+        // Draw hint path line
+        if path.count >= 2 {
+            let linePath = CGMutablePath()
+            let firstPos = positionForTile(row: path[0].row, col: path[0].col)
+            linePath.move(to: firstPos)
+            for i in 1..<path.count {
+                let pos = positionForTile(row: path[i].row, col: path[i].col)
+                linePath.addLine(to: pos)
+            }
+            let hintLine = SKShapeNode(path: linePath)
+            hintLine.strokeColor = SKColor(red: 1.0, green: 0.75, blue: 0.15, alpha: 0.6)
+            hintLine.lineWidth = 3
+            hintLine.lineCap = .round
+            hintLine.lineJoin = .round
+            hintLine.zPosition = 9
+            hintLine.name = "hintLine"
+            let dashPattern: [CGFloat] = [8, 4]
+            hintLine.path = linePath.copy(dashingWithPhase: 0, lengths: dashPattern)
+            boardNode.addChild(hintLine)
+            hintNodes.append(hintLine)
+
+            // Pulse the line too
+            let linePulse = SKAction.repeatForever(SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.3, duration: 0.5),
+                SKAction.fadeAlpha(to: 0.8, duration: 0.5)
+            ]))
+            hintLine.run(linePulse)
         }
     }
 
@@ -1055,6 +1268,7 @@ class GameScene: SKScene {
             node.removeFromParent()
         }
         hintNodes.removeAll()
+        hintedTiles.removeAll()
     }
 
     // MARK: - Timer
@@ -1164,11 +1378,19 @@ class GameScene: SKScene {
         panel.name = "resultPanel"
         addChild(panel)
 
-        // Title
+        // Title — correct failure text based on level type
         let title = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        title.text = completed ? "Level Complete!" : "Time's Up!"
+        if completed {
+            title.text = "Level Complete!"
+            title.fontColor = .green
+        } else if let config = levelConfig, config.goalType == .clearIceMoves {
+            title.text = "Out of Moves!"
+            title.fontColor = .red
+        } else {
+            title.text = "Time's Up!"
+            title.fontColor = .red
+        }
         title.fontSize = 28
-        title.fontColor = completed ? .green : .red
         title.position = CGPoint(x: 0, y: 110)
         panel.addChild(title)
 
@@ -1207,7 +1429,6 @@ class GameScene: SKScene {
         mapBtn.name = "mapBtn"
         panel.addChild(mapBtn)
 
-        // Handle button taps
         overlay.isUserInteractionEnabled = false
     }
 

@@ -8,16 +8,16 @@ enum PowerUpType: String, CaseIterable {
     case laser
     case crossLaser
     case mine
+    case shuffle
 }
 
 // MARK: - PowerUpAction
 
 enum PowerUpAction {
     case hint(path: [TileModel])
-    case bomb(center: TileModel)
-    case laser(tile: TileModel, isRow: Bool)
-    case crossLaser(tile: TileModel)
-    case mine(tile: TileModel)
+    case placedSpecialTile(tile: TileModel, type: SpecialTileType)
+    case placedMine(tile: TileModel)
+    case shuffled
 }
 
 // MARK: - PowerUpSystem
@@ -42,6 +42,7 @@ class PowerUpSystem {
         case .laser: return state.laserCount
         case .crossLaser: return state.crossLaserCount
         case .mine: return state.mineCount
+        case .shuffle: return state.shuffleCount
         }
     }
 
@@ -57,6 +58,7 @@ class PowerUpSystem {
         case .laser: state.laserCount -= 1
         case .crossLaser: state.crossLaserCount -= 1
         case .mine: state.mineCount -= 1
+        case .shuffle: state.shuffleCount -= 1
         }
         return true
     }
@@ -71,28 +73,83 @@ class PowerUpSystem {
         return WordValidator.shared.findValidWord(on: grid)
     }
 
-    func executeBomb(at tile: TileModel) -> [TileModel]? {
+    /// Place a bomb special tile at a random normal tile on the board (keeps its letter)
+    func placeBomb() -> TileModel? {
         guard let board = boardModel else { return nil }
         guard consume(.bomb) else { return nil }
-        return board.tilesAffectedByBomb(center: tile)
+        return placeSpecialTileRandomly(on: board, type: .bomb)
     }
 
-    func executeLaser(at tile: TileModel, isRow: Bool) -> [TileModel]? {
+    /// Place a laser special tile at a random normal tile on the board (keeps its letter)
+    func placeLaser() -> TileModel? {
         guard let board = boardModel else { return nil }
         guard consume(.laser) else { return nil }
-        return board.tilesAffectedByLaser(tile: tile, isRow: isRow)
+        return placeSpecialTileRandomly(on: board, type: .laser)
     }
 
-    func executeCrossLaser(at tile: TileModel) -> [TileModel]? {
+    /// Place a cross laser special tile at a random normal tile on the board (keeps its letter)
+    func placeCrossLaser() -> TileModel? {
         guard let board = boardModel else { return nil }
         guard consume(.crossLaser) else { return nil }
-        return board.tilesAffectedByCrossLaser(tile: tile)
+        return placeSpecialTileRandomly(on: board, type: .crossLaser)
     }
 
-    func placeMine(on tile: TileModel) -> Bool {
-        guard consume(.mine) else { return false }
-        tile.hasMineOverlay = true
+    /// Place a mine overlay on a random normal tile on the board
+    func placeMine() -> TileModel? {
+        guard let board = boardModel else { return nil }
+        guard consume(.mine) else { return nil }
+
+        var normalTiles: [TileModel] = []
+        for r in 0..<board.rows {
+            for c in 0..<board.cols {
+                if let tile = board.grid[r][c], tile.specialType == nil && !tile.hasMineOverlay {
+                    normalTiles.append(tile)
+                }
+            }
+        }
+        guard let target = normalTiles.randomElement() else { return nil }
+        target.hasMineOverlay = true
+        return target
+    }
+
+    /// Shuffle all normal tiles on the board
+    func executeShuffle() -> Bool {
+        guard let board = boardModel else { return false }
+        guard consume(.shuffle) else { return false }
+
+        var normalTiles: [TileModel] = []
+        for r in 0..<board.rows {
+            for c in 0..<board.cols {
+                if let tile = board.grid[r][c], tile.specialType == nil {
+                    normalTiles.append(tile)
+                }
+            }
+        }
+
+        // Shuffle letters among normal tiles
+        var letters = normalTiles.map { $0.letter }
+        letters.shuffle()
+        for (i, tile) in normalTiles.enumerated() {
+            tile.letter = letters[i]
+        }
+
         return true
+    }
+
+    // MARK: - Private Helpers
+
+    private func placeSpecialTileRandomly(on board: BoardModel, type: SpecialTileType) -> TileModel? {
+        var normalTiles: [TileModel] = []
+        for r in 0..<board.rows {
+            for c in 0..<board.cols {
+                if let tile = board.grid[r][c], tile.specialType == nil {
+                    normalTiles.append(tile)
+                }
+            }
+        }
+        guard let target = normalTiles.randomElement() else { return nil }
+        target.specialType = type
+        return target
     }
 
     // MARK: - Sync with Persistence

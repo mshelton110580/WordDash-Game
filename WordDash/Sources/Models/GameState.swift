@@ -15,6 +15,7 @@ class GameState {
     var cascadeStep: Int = 0
     var isGameOver: Bool = false
     var isLevelComplete: Bool = false
+    var wordSubmitCount: Int = 0
 
     // Power-up inventory
     var hintCount: Int = 3
@@ -22,6 +23,7 @@ class GameState {
     var laserCount: Int = 2
     var crossLaserCount: Int = 1
     var mineCount: Int = 1
+    var shuffleCount: Int = 2
 
     func reset(for config: LevelConfig) {
         score = 0
@@ -34,6 +36,7 @@ class GameState {
         isGameOver = false
         isLevelComplete = false
         timerStarted = false
+        wordSubmitCount = 0
 
         if config.goalType == .scoreTimed {
             timeRemaining = TimeInterval(config.timeLimitSeconds ?? 60)
