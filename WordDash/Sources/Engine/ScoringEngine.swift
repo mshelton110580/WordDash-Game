@@ -25,18 +25,21 @@ class ScoringEngine {
         return GameConstants.letterValues[Character(character.uppercased())] ?? 0
     }
 
-    /// Base letter score for a word — applies letterMultiplier (2x/3x) per tile
+    /// Base letter score for a word — letter multipliers (2x/3x) multiply together across the word
+    /// e.g. a word with a 2x tile and a 3x tile gets a 6x combined multiplier
     func baseLetterScore(for tiles: [TileModel]) -> Int {
-        var total = 0
+        var rawTotal = 0
+        var combinedMult = 1
         for tile in tiles {
             if tile.specialType == .wildcard {
-                total += GameConstants.wildcardBasePoints
+                rawTotal += GameConstants.wildcardBasePoints
             } else {
                 let baseVal = letterValue(for: tile.letter)
-                total += baseVal * tile.letterMultiplier
+                rawTotal += baseVal
             }
+            combinedMult *= tile.letterMultiplier
         }
-        return total
+        return rawTotal * combinedMult
     }
 
     /// Explosion score for tiles destroyed by power-ups — NO letterMultiplier applied
