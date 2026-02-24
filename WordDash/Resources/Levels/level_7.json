@@ -1,0 +1,26 @@
+{
+    "levelNumber": 7,
+    "goalType": "clearIceMoves",
+    "boardSize": 7,
+    "iceTilesToClearTarget": 12,
+    "moveLimit": 25,
+    "icePositions": [
+        {"row": 0, "col": 3},
+        {"row": 1, "col": 2},
+        {"row": 1, "col": 4},
+        {"row": 2, "col": 1},
+        {"row": 2, "col": 3},
+        {"row": 2, "col": 5},
+        {"row": 3, "col": 2},
+        {"row": 3, "col": 4},
+        {"row": 4, "col": 1},
+        {"row": 4, "col": 3},
+        {"row": 4, "col": 5},
+        {"row": 5, "col": 3}
+    ],
+    "starThresholds": {
+        "oneStar": 120,
+        "twoStar": 250,
+        "threeStar": 400
+    }
+}

@@ -1,0 +1,13 @@
+{
+    "levelNumber": 4,
+    "goalType": "scoreTimed",
+    "boardSize": 7,
+    "targetScore": 350,
+    "timeLimitSeconds": 100,
+    "addTimeOnClearSeconds": 0,
+    "starThresholds": {
+        "oneStar": 350,
+        "twoStar": 500,
+        "threeStar": 750
+    }
+}

@@ -1,0 +1,560 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AF6921430BF34FC98952A418 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9797C78DD25E44CDB19F68D2 /* AppDelegate.swift */; };
+		19C3BE411F1740D9B16A5D50 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92797C015E8242DA9D7721EB /* SceneDelegate.swift */; };
+		B6CC308C57AF458C86786864 /* TileModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 094B0ED21D2D40929878F51E /* TileModel.swift */; };
+		3E78542F871C47BD8C16F653 /* LevelConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4326AE660B54DEFB79C4A3F /* LevelConfig.swift */; };
+		E86CEA6F70ED42B28958B0AE /* GameState.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E662D81A4A468A86B10A5A /* GameState.swift */; };
+		BB7E42C3802C4D9AB13B7CD9 /* PlayerProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296DF87F31F24ABB99C7B8AF /* PlayerProgress.swift */; };
+		5D2852F5CA6546D0AD18C834 /* WordValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271532942313458FAAE14F18 /* WordValidator.swift */; };
+		8AA4A0E4D96A46AD8000DEB7 /* ScoringEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A559C8673C415CB02B6B64 /* ScoringEngine.swift */; };
+		6C40DEDE964F494D9970040C /* BoardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D526CCA09B45D1AF601F19 /* BoardModel.swift */; };
+		7B9C217EEFDC4BBD8CAABB09 /* PowerUpSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DD55C2E36E44D3697CEEA33 /* PowerUpSystem.swift */; };
+		6C2BD9BA24E3406E91704A63 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03C8B5A31CC54BDABB8C17D5 /* GameScene.swift */; };
+		EA43E78A77174DACB174E378 /* MainMenuScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B328181CBCB4E32A0E2FB28 /* MainMenuScene.swift */; };
+		6BF9C128C47E4666B0C99A95 /* LevelMapScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5386311EA6D41A0A6E9CD0E /* LevelMapScene.swift */; };
+		F72C3621D6D84836953FF8A6 /* SettingsScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = D224AE6D5C754C8FAFE787C2 /* SettingsScene.swift */; };
+		AF8B9A5B9CF4483C93AAFC37 /* GameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA3F23E0CE74A588D9CDCDD /* GameViewController.swift */; };
+		65357CD1F1F4425AB5793CEE /* LevelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB891A71962241DE91EC81E2 /* LevelManager.swift */; };
+		B06BDA75054748FAA630086B /* PersistenceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7DFB74A36334A3DB51ACE2C /* PersistenceManager.swift */; };
+		E8EC115D40854A1C8E33878E /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB82C7AAAD95448BADF748EA /* Constants.swift */; };
+		C68CB29F066D4EF6BA7C5591 /* LetterGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB5BE32E12C475B957936DC /* LetterGenerator.swift */; };
+		40896ACFA5854FC0BD7C9CF3 /* WordDashTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EEF0A21FDC947928D524107 /* WordDashTests.swift */; };
+		61D0FF6DCE6F422CA9D7A29F /* level_1.json in Resources */ = {isa = PBXBuildFile; fileRef = 496D3066ECD64597B5B93757 /* level_1.json */; };
+		6102CA71062F48BDB6BD550B /* level_2.json in Resources */ = {isa = PBXBuildFile; fileRef = E56F594553104505BC752491 /* level_2.json */; };
+		6F85F4C972A545938DC0373A /* level_3.json in Resources */ = {isa = PBXBuildFile; fileRef = B7CFAE79B29942D48DB8A368 /* level_3.json */; };
+		0D27D02ABCC1476284B7DA6E /* level_4.json in Resources */ = {isa = PBXBuildFile; fileRef = 5BC96BA7593B4D98AA86DD75 /* level_4.json */; };
+		0C264603B5C144688019A194 /* level_5.json in Resources */ = {isa = PBXBuildFile; fileRef = 6282CEF7FED0475A9D2CC631 /* level_5.json */; };
+		A3955E43DA4541B3928B092D /* level_6.json in Resources */ = {isa = PBXBuildFile; fileRef = C43DEC26335E4A74AC139F5C /* level_6.json */; };
+		8BED77A7CDA74F5C80B56745 /* level_7.json in Resources */ = {isa = PBXBuildFile; fileRef = AC2C1B45EE344690B546FE1F /* level_7.json */; };
+		418B7814D3FA44B6A736EDAA /* level_8.json in Resources */ = {isa = PBXBuildFile; fileRef = CB459AA0A3994BF58C995EBC /* level_8.json */; };
+		D2C0D0C09BC84882973A7444 /* level_9.json in Resources */ = {isa = PBXBuildFile; fileRef = 4E2388A27EF54D838F19FAF7 /* level_9.json */; };
+		BF67A7EEA176454D95F385F2 /* level_10.json in Resources */ = {isa = PBXBuildFile; fileRef = 2390E00207EA455FA55CA4F3 /* level_10.json */; };
+		3CD90723004342288F4810F3 /* profanity.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4FDF440ADC884E23A688D6CA /* profanity.txt */; };
+		7238503FBDAA44DE850A44FC /* wordlist.txt in Resources */ = {isa = PBXBuildFile; fileRef = 440E8383339D4E2EBEEFD017 /* wordlist.txt */; };
+		0CF4B35A197448149DEC2A85 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D0D9BEDA31FD4814BA9B17D2 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		97370E1888E3414D85513098 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2364352C20694AA0B1BD3FE8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5317937C00BF441794FB0DF1;
+			remoteInfo = WordDash;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		7407065E5F964192A40D4414 /* WordDash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WordDash.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		972CE9D82E024BF1B206736E /* WordDashTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WordDashTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9797C78DD25E44CDB19F68D2 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		92797C015E8242DA9D7721EB /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		094B0ED21D2D40929878F51E /* TileModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TileModel.swift; sourceTree = "<group>"; };
+		B4326AE660B54DEFB79C4A3F /* LevelConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LevelConfig.swift; sourceTree = "<group>"; };
+		E3E662D81A4A468A86B10A5A /* GameState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameState.swift; sourceTree = "<group>"; };
+		296DF87F31F24ABB99C7B8AF /* PlayerProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerProgress.swift; sourceTree = "<group>"; };
+		271532942313458FAAE14F18 /* WordValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordValidator.swift; sourceTree = "<group>"; };
+		E6A559C8673C415CB02B6B64 /* ScoringEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringEngine.swift; sourceTree = "<group>"; };
+		B7D526CCA09B45D1AF601F19 /* BoardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardModel.swift; sourceTree = "<group>"; };
+		4DD55C2E36E44D3697CEEA33 /* PowerUpSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerUpSystem.swift; sourceTree = "<group>"; };
+		03C8B5A31CC54BDABB8C17D5 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
+		9B328181CBCB4E32A0E2FB28 /* MainMenuScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuScene.swift; sourceTree = "<group>"; };
+		F5386311EA6D41A0A6E9CD0E /* LevelMapScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LevelMapScene.swift; sourceTree = "<group>"; };
+		D224AE6D5C754C8FAFE787C2 /* SettingsScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScene.swift; sourceTree = "<group>"; };
+		DCA3F23E0CE74A588D9CDCDD /* GameViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameViewController.swift; sourceTree = "<group>"; };
+		BB891A71962241DE91EC81E2 /* LevelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LevelManager.swift; sourceTree = "<group>"; };
+		D7DFB74A36334A3DB51ACE2C /* PersistenceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceManager.swift; sourceTree = "<group>"; };
+		DB82C7AAAD95448BADF748EA /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		ACB5BE32E12C475B957936DC /* LetterGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LetterGenerator.swift; sourceTree = "<group>"; };
+		1EEF0A21FDC947928D524107 /* WordDashTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDashTests.swift; sourceTree = "<group>"; };
+		496D3066ECD64597B5B93757 /* level_1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = level_1.json; sourceTree = "<group>"; };
+		E56F594553104505BC752491 /* level_2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = level_2.json; sourceTree = "<group>"; };
+		B7CFAE79B29942D48DB8A368 /* level_3.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = level_3.json; sourceTree = "<group>"; };
+		5BC96BA7593B4D98AA86DD75 /* level_4.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = level_4.json; sourceTree = "<group>"; };
+		6282CEF7FED0475A9D2CC631 /* level_5.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = level_5.json; sourceTree = "<group>"; };
+		C43DEC26335E4A74AC139F5C /* level_6.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = level_6.json; sourceTree = "<group>"; };
+		AC2C1B45EE344690B546FE1F /* level_7.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = level_7.json; sourceTree = "<group>"; };
+		CB459AA0A3994BF58C995EBC /* level_8.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = level_8.json; sourceTree = "<group>"; };
+		4E2388A27EF54D838F19FAF7 /* level_9.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = level_9.json; sourceTree = "<group>"; };
+		2390E00207EA455FA55CA4F3 /* level_10.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = level_10.json; sourceTree = "<group>"; };
+		4FDF440ADC884E23A688D6CA /* profanity.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = profanity.txt; sourceTree = "<group>"; };
+		440E8383339D4E2EBEEFD017 /* wordlist.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = wordlist.txt; sourceTree = "<group>"; };
+		D0D9BEDA31FD4814BA9B17D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1C8F45A408524A209EF1A8C5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E3975BCD30EA4F32933B0397 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		C3A52C7E119C403BA895261B = {
+			isa = PBXGroup;
+			children = (
+				BF29231EA44F4ECEB4B96666,
+				734558DA07034BED91E68D05,
+				0ABA8761C5374629B07B9BD2,
+				257BAB6F71D04A59AAB4A596,
+				8063E32936304233BEDF74D0,
+			);
+			sourceTree = "<group>";
+		};
+		BF29231EA44F4ECEB4B96666 /* WordDash */ = {
+			isa = PBXGroup;
+			children = (
+				28F76906A78D42559B6B8AED,
+				EDD5D2711ED34C1A9122725F,
+				28ADD20339CF4A54AFE83135,
+				105E983F91004E1798B318B4,
+				4CF9A3D3B7EE4F28A7DD92E3,
+				D0D9BEDA31FD4814BA9B17D2,
+				1C8F45A408524A209EF1A8C5,
+				9797C78DD25E44CDB19F68D2,
+				92797C015E8242DA9D7721EB,
+			);
+			path = "WordDash/Sources";
+			sourceTree = "<group>";
+		};
+		28F76906A78D42559B6B8AED /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				094B0ED21D2D40929878F51E /* TileModel.swift */,
+				B4326AE660B54DEFB79C4A3F /* LevelConfig.swift */,
+				E3E662D81A4A468A86B10A5A /* GameState.swift */,
+				296DF87F31F24ABB99C7B8AF /* PlayerProgress.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		EDD5D2711ED34C1A9122725F /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				271532942313458FAAE14F18 /* WordValidator.swift */,
+				E6A559C8673C415CB02B6B64 /* ScoringEngine.swift */,
+				B7D526CCA09B45D1AF601F19 /* BoardModel.swift */,
+				4DD55C2E36E44D3697CEEA33 /* PowerUpSystem.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		28ADD20339CF4A54AFE83135 /* Scenes */ = {
+			isa = PBXGroup;
+			children = (
+				03C8B5A31CC54BDABB8C17D5 /* GameScene.swift */,
+				9B328181CBCB4E32A0E2FB28 /* MainMenuScene.swift */,
+				F5386311EA6D41A0A6E9CD0E /* LevelMapScene.swift */,
+				D224AE6D5C754C8FAFE787C2 /* SettingsScene.swift */,
+				DCA3F23E0CE74A588D9CDCDD /* GameViewController.swift */,
+			);
+			path = Scenes;
+			sourceTree = "<group>";
+		};
+		105E983F91004E1798B318B4 /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				BB891A71962241DE91EC81E2 /* LevelManager.swift */,
+				D7DFB74A36334A3DB51ACE2C /* PersistenceManager.swift */,
+			);
+			path = Managers;
+			sourceTree = "<group>";
+		};
+		4CF9A3D3B7EE4F28A7DD92E3 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				DB82C7AAAD95448BADF748EA /* Constants.swift */,
+				ACB5BE32E12C475B957936DC /* LetterGenerator.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		734558DA07034BED91E68D05 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				1F1259CFB5214843B02854DA /* Levels */,
+				C70477B6793E49FFB7BF2C85 /* Dictionary */,
+			);
+			path = "WordDash/Resources";
+			sourceTree = "<group>";
+		};
+		1F1259CFB5214843B02854DA /* Levels */ = {
+			isa = PBXGroup;
+			children = (
+				496D3066ECD64597B5B93757 /* level_1.json */,
+				E56F594553104505BC752491 /* level_2.json */,
+				B7CFAE79B29942D48DB8A368 /* level_3.json */,
+				5BC96BA7593B4D98AA86DD75 /* level_4.json */,
+				6282CEF7FED0475A9D2CC631 /* level_5.json */,
+				C43DEC26335E4A74AC139F5C /* level_6.json */,
+				AC2C1B45EE344690B546FE1F /* level_7.json */,
+				CB459AA0A3994BF58C995EBC /* level_8.json */,
+				4E2388A27EF54D838F19FAF7 /* level_9.json */,
+				2390E00207EA455FA55CA4F3 /* level_10.json */,
+			);
+			path = Levels;
+			sourceTree = "<group>";
+		};
+		C70477B6793E49FFB7BF2C85 /* Dictionary */ = {
+			isa = PBXGroup;
+			children = (
+				4FDF440ADC884E23A688D6CA /* profanity.txt */,
+				440E8383339D4E2EBEEFD017 /* wordlist.txt */,
+			);
+			path = Dictionary;
+			sourceTree = "<group>";
+		};
+		0ABA8761C5374629B07B9BD2 /* WordDashTests */ = {
+			isa = PBXGroup;
+			children = (
+				1EEF0A21FDC947928D524107 /* WordDashTests.swift */,
+				E3975BCD30EA4F32933B0397 /* Info.plist */,
+			);
+			path = WordDashTests;
+			sourceTree = "<group>";
+		};
+		257BAB6F71D04A59AAB4A596 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7407065E5F964192A40D4414 /* WordDash.app */,
+				972CE9D82E024BF1B206736E /* WordDashTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8063E32936304233BEDF74D0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5317937C00BF441794FB0DF1 /* WordDash */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C3D99A10E535463EA91ECC27 /* Build configuration list for PBXNativeTarget "WordDash" */;
+			buildPhases = (
+				4DA7DF6D0FAA4788A41DA938 /* Sources */,
+				915DAA49EECB44E3AA1E0344 /* Frameworks */,
+				E56D00FD36404AFC8AFDFC31 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WordDash;
+			productName = WordDash;
+			productReference = 7407065E5F964192A40D4414 /* WordDash.app */;
+			productType = "com.apple.product-type.application";
+		};
+		7CE7DB659D63422BB00E8168 /* WordDashTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 446B0C26FDAD40DF95DA58EE /* Build configuration list for PBXNativeTarget "WordDashTests" */;
+			buildPhases = (
+				DE379C96F0B8447C8DCDA783 /* Sources */,
+				BDEFF2E3E4CA439B9ED39757 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				89569E1F1E8C4EFAB5E197D6 /* PBXTargetDependency */,
+			);
+			name = WordDashTests;
+			productName = WordDashTests;
+			productReference = 972CE9D82E024BF1B206736E /* WordDashTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2364352C20694AA0B1BD3FE8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+				TargetAttributes = {
+					5317937C00BF441794FB0DF1 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+					7CE7DB659D63422BB00E8168 = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = 5317937C00BF441794FB0DF1;
+					};
+				};
+			};
+			buildConfigurationList = 68A1E612E4CB45618590B0F5 /* Build configuration list for PBXProject "WordDash" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = C3A52C7E119C403BA895261B;
+			productRefGroup = 257BAB6F71D04A59AAB4A596 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5317937C00BF441794FB0DF1 /* WordDash */,
+				7CE7DB659D63422BB00E8168 /* WordDashTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4DA7DF6D0FAA4788A41DA938 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF6921430BF34FC98952A418 /* AppDelegate.swift in Sources */,
+				19C3BE411F1740D9B16A5D50 /* SceneDelegate.swift in Sources */,
+				B6CC308C57AF458C86786864 /* TileModel.swift in Sources */,
+				3E78542F871C47BD8C16F653 /* LevelConfig.swift in Sources */,
+				E86CEA6F70ED42B28958B0AE /* GameState.swift in Sources */,
+				BB7E42C3802C4D9AB13B7CD9 /* PlayerProgress.swift in Sources */,
+				5D2852F5CA6546D0AD18C834 /* WordValidator.swift in Sources */,
+				8AA4A0E4D96A46AD8000DEB7 /* ScoringEngine.swift in Sources */,
+				6C40DEDE964F494D9970040C /* BoardModel.swift in Sources */,
+				7B9C217EEFDC4BBD8CAABB09 /* PowerUpSystem.swift in Sources */,
+				6C2BD9BA24E3406E91704A63 /* GameScene.swift in Sources */,
+				EA43E78A77174DACB174E378 /* MainMenuScene.swift in Sources */,
+				6BF9C128C47E4666B0C99A95 /* LevelMapScene.swift in Sources */,
+				F72C3621D6D84836953FF8A6 /* SettingsScene.swift in Sources */,
+				AF8B9A5B9CF4483C93AAFC37 /* GameViewController.swift in Sources */,
+				65357CD1F1F4425AB5793CEE /* LevelManager.swift in Sources */,
+				B06BDA75054748FAA630086B /* PersistenceManager.swift in Sources */,
+				E8EC115D40854A1C8E33878E /* Constants.swift in Sources */,
+				C68CB29F066D4EF6BA7C5591 /* LetterGenerator.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DE379C96F0B8447C8DCDA783 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				40896ACFA5854FC0BD7C9CF3 /* WordDashTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E56D00FD36404AFC8AFDFC31 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				61D0FF6DCE6F422CA9D7A29F /* level_1.json in Resources */,
+				6102CA71062F48BDB6BD550B /* level_2.json in Resources */,
+				6F85F4C972A545938DC0373A /* level_3.json in Resources */,
+				0D27D02ABCC1476284B7DA6E /* level_4.json in Resources */,
+				0C264603B5C144688019A194 /* level_5.json in Resources */,
+				A3955E43DA4541B3928B092D /* level_6.json in Resources */,
+				8BED77A7CDA74F5C80B56745 /* level_7.json in Resources */,
+				418B7814D3FA44B6A736EDAA /* level_8.json in Resources */,
+				D2C0D0C09BC84882973A7444 /* level_9.json in Resources */,
+				BF67A7EEA176454D95F385F2 /* level_10.json in Resources */,
+				3CD90723004342288F4810F3 /* profanity.txt in Resources */,
+				7238503FBDAA44DE850A44FC /* wordlist.txt in Resources */,
+				0CF4B35A197448149DEC2A85 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		915DAA49EECB44E3AA1E0344 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BDEFF2E3E4CA439B9ED39757 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		89569E1F1E8C4EFAB5E197D6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5317937C00BF441794FB0DF1 /* WordDash */;
+			targetProxy = 97370E1888E3414D85513098 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		22B8CFDBF5414A3284FAC8F8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSTCOMPILER_EXEC = default;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		6DD0EF10B1DB40C4AF9181A1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		64676DE76419480B9CF640BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = WordDash/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.worddash.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8B9E3869B6FD4BE0A1DC8052 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = WordDash/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.worddash.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		8C2CBAA429454D0E998443A6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.worddash.WordDashTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WordDash.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/WordDash";
+			};
+			name = Debug;
+		};
+		42246FAF693C45F79858D730 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.worddash.WordDashTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WordDash.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/WordDash";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		68A1E612E4CB45618590B0F5 /* Build configuration list for PBXProject "WordDash" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				22B8CFDBF5414A3284FAC8F8 /* Debug */,
+				6DD0EF10B1DB40C4AF9181A1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C3D99A10E535463EA91ECC27 /* Build configuration list for PBXNativeTarget "WordDash" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				64676DE76419480B9CF640BB /* Debug */,
+				8B9E3869B6FD4BE0A1DC8052 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		446B0C26FDAD40DF95DA58EE /* Build configuration list for PBXNativeTarget "WordDashTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8C2CBAA429454D0E998443A6 /* Debug */,
+				42246FAF693C45F79858D730 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 2364352C20694AA0B1BD3FE8 /* Project object */;
+}
