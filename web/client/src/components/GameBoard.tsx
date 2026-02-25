@@ -376,33 +376,45 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
   }
 
   // ===================== CLEARING TILE ANIMATION =====================
-  // This draws tiles that are marked isClearing with a time-based squash+pop+flash+fade
+  // Draws tiles marked isClearing with time-based squash+pop+flash+fade.
+  // ALSO spawns particles/shockwaves at the right moment (once per tile).
   function drawClearingTile(ctx: CanvasRenderingContext2D, tile: Tile, row: number, col: number) {
     const pos = getTilePos(row, col);
     const { x, y } = pos;
     const cx = x + tileSize / 2;
     const cy = y + tileSize / 2;
 
-    // Time-based animation (not frame-based)
+    // Time-based animation
     const elapsed = Date.now() - gameState.pendingClearTimestamp;
-    // Each tile has a stagger delay based on its tileClearAnim entry
     const anim = gameState.tileClearAnims.find(a => a.row === row && a.col === col);
-    const staggerMs = anim ? anim.delay * (1000 / 60) : 0; // convert frames to ms
+    const staggerMs = anim ? anim.delay * (1000 / 60) : 0;
     const tileElapsed = elapsed - staggerMs;
 
     if (tileElapsed < 0) {
-      // Still waiting for stagger — draw normally
       drawTile(ctx, { ...tile, isClearing: false } as Tile, row, col);
       return;
     }
 
-    // Animation phases (total ~350ms):
-    // Squash: 0-80ms
-    // Pop+Flash: 80-200ms
-    // Fade: 200-350ms
     const SQUASH_DUR = 80;
     const POP_DUR = 120;
     const FADE_DUR = 150;
+
+    // --- SPAWN PARTICLES & SHOCKWAVE at squash→pop transition (once per tile) ---
+    const tileKey = `${row},${col}`;
+    if (tileElapsed >= SQUASH_DUR && !gameState._particlesSpawnedSet.has(tileKey)) {
+      gameState._particlesSpawnedSet.add(tileKey);
+      const themeColor = getClearThemeColor(tile.specialType || null);
+      const intensity = tile.specialType ? 'big' : 'normal';
+      spawnLayeredParticles(gameState, cx, cy, themeColor, intensity);
+      // Shockwave for special tiles
+      if (tile.specialType) {
+        spawnShockwave(gameState, cx, cy, themeColor, 300, 2.0);
+      }
+      // Small shockwave even for normal tiles (subtle ring)
+      if (!tile.specialType) {
+        spawnShockwave(gameState, cx, cy, themeColor, 180, 0.8);
+      }
+    }
 
     ctx.save();
 
@@ -427,7 +439,7 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       drawTileText(ctx, tile, x, y);
 
     } else if (tileElapsed < SQUASH_DUR + POP_DUR) {
-      // POP + FLASH: scale up, white flash overlay, start fading
+      // POP + FLASH: scale up rapidly, bright flash overlay
       const t = (tileElapsed - SQUASH_DUR) / POP_DUR;
       const scale = 1 + t * 0.5;
       const alpha = Math.max(0, 1 - t * 0.8);
@@ -446,35 +458,48 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       }
 
       // WHITE/YELLOW FLASH overlay — the "juicy" flash
-      const flashAlpha = (1 - t) * 0.7;
+      const flashAlpha = (1 - t) * 0.85;
       ctx.globalAlpha = flashAlpha;
       ctx.globalCompositeOperation = 'lighter';
       const flashColor = tile.specialType === 'bomb' ? '#FF8844' :
                          tile.specialType === 'laser' ? '#88CCFF' :
                          tile.specialType === 'crossLaser' ? '#CC88FF' :
                          tile.specialType === 'mine' ? '#FF6666' :
-                         '#FFFFCC'; // warm yellow for normal
+                         '#FFFFCC';
       ctx.fillStyle = flashColor;
-      roundRect(ctx, x - 4, y - 4, tileSize + 8, tileSize + 8, CORNER_RADIUS + 2);
+      roundRect(ctx, x - 6, y - 6, tileSize + 12, tileSize + 12, CORNER_RADIUS + 4);
       ctx.fill();
       ctx.globalCompositeOperation = 'source-over';
 
     } else if (tileElapsed < SQUASH_DUR + POP_DUR + FADE_DUR) {
-      // FADE: shrink + alpha out
+      // FADE: tile image shrinks + fades with a warm glow halo
       const t = (tileElapsed - SQUASH_DUR - POP_DUR) / FADE_DUR;
-      const scale = 1.5 - t * 0.8;
-      const alpha = Math.max(0, (1 - t) * 0.4);
+      const scale = 1.3 - t * 0.6;
+      const alpha = Math.max(0, (1 - t) * 0.5);
       ctx.translate(cx, cy);
       ctx.scale(scale, scale);
       ctx.translate(-cx, -cy);
       ctx.globalAlpha = alpha;
 
-      // Just a colored glow remnant
+      // Draw the tile image fading out (not just a circle)
+      const img = getImageForTile(tile, false);
+      if (isImageReady(img)) {
+        ctx.drawImage(img, x, y, tileSize, tileSize);
+      } else {
+        ctx.fillStyle = '#C49660';
+        roundRect(ctx, x, y, tileSize, tileSize, CORNER_RADIUS);
+        ctx.fill();
+      }
+
+      // Additive glow halo behind
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = alpha * 0.6;
       const color = getClearThemeColor(tile.specialType || null);
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(cx, cy, tileSize * 0.4, 0, Math.PI * 2);
+      ctx.arc(cx, cy, tileSize * 0.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
     }
     // After FADE_DUR: tile is invisible, waiting for flushPendingClears
 
@@ -878,50 +903,17 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       const result = submitWord(gameState);
 
       if (result.valid) {
-        // --- PREMIUM EFFECTS ---
-        const hasSpecial = pathCopy.some(t => t.specialType);
+        // --- PREMIUM EFFECTS (no setTimeout — particles spawn in draw loop) ---
         const hasBomb = pathCopy.some(t => t.specialType === 'bomb');
         const hasLaser = pathCopy.some(t => t.specialType === 'laser' || t.specialType === 'crossLaser');
 
-        // Spawn tile clear anims (for stagger timing reference)
+        // Clear the particle spawn tracker for this new clear
+        gameState._particlesSpawnedSet.clear();
+
+        // Spawn tile clear anims (stagger timing for the draw loop)
         for (let i = 0; i < pathCopy.length; i++) {
           const tile = pathCopy[i];
           spawnTileClearAnim(gameState, tile.row, tile.col, tile.letter, tile.specialType || null, i);
-        }
-
-        // Staggered particles along word path
-        for (let i = 0; i < pathCopy.length; i++) {
-          const tile = pathCopy[i];
-          const pos = getTilePos(tile.row, tile.col);
-          const cx = pos.x + tileSize / 2;
-          const cy = pos.y + tileSize / 2;
-          const themeColor = getClearThemeColor(tile.specialType || null);
-          const intensity = tile.specialType ? 'big' : 'normal';
-          setTimeout(() => {
-            spawnLayeredParticles(gameState, cx, cy, themeColor, intensity);
-          }, i * 25 + 80); // delay to match squash phase ending
-        }
-
-        // Shockwave for special tiles
-        if (hasSpecial) {
-          for (const tile of pathCopy) {
-            if (tile.specialType) {
-              const pos = getTilePos(tile.row, tile.col);
-              const cx = pos.x + tileSize / 2;
-              const cy = pos.y + tileSize / 2;
-              const color = getClearThemeColor(tile.specialType);
-              spawnShockwave(gameState, cx, cy, color, 300, 2.0);
-            }
-          }
-        }
-
-        // Screen shake
-        if (hasBomb) {
-          triggerScreenShake(gameState, 8, 12);
-        } else if (hasLaser) {
-          triggerScreenShake(gameState, 5, 10);
-        } else if (pathCopy.length >= 5) {
-          triggerScreenShake(gameState, 3, 8);
         }
 
         // Explosion-cleared tiles (bomb radius, laser lines, etc.)
@@ -931,18 +923,18 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
           for (const ec of gameState.explosionClears) {
             const key = `${ec.row},${ec.col}`;
             if (pathIds.has(key)) continue;
-            const pos = getTilePos(ec.row, ec.col);
-            const cx = pos.x + tileSize / 2;
-            const cy = pos.y + tileSize / 2;
-            const color = getClearThemeColor(ec.specialType);
-            const delay = explIdx * 15 + 80;
             spawnTileClearAnim(gameState, ec.row, ec.col, '', ec.specialType, explIdx);
-            setTimeout(() => {
-              spawnLayeredParticles(gameState, cx, cy, color, 'normal');
-              spawnShockwave(gameState, cx, cy, color, 200, 1.2);
-            }, delay);
             explIdx++;
           }
+        }
+
+        // Screen shake (synchronous, works fine here)
+        if (hasBomb) {
+          triggerScreenShake(gameState, 8, 12);
+        } else if (hasLaser) {
+          triggerScreenShake(gameState, 5, 10);
+        } else if (pathCopy.length >= 5) {
+          triggerScreenShake(gameState, 3, 8);
         }
       }
 

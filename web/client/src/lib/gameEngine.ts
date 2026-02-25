@@ -246,6 +246,7 @@ export interface GameState {
   pendingClearDuration: number; // ms to wait before flushing
   pendingGravity: boolean; // gravity+refill needs to run after flush
   _pendingSpecialSpawn: { row: number; col: number; specialType: SpecialType } | null;
+  _particlesSpawnedSet: Set<string>; // tracks which clearing tiles already spawned particles
 }
 
 export interface CoinFlyEvent {
@@ -369,6 +370,7 @@ export function createGameState(level: LevelConfig): GameState {
     pendingClearDuration: 0,
     pendingGravity: false,
     _pendingSpecialSpawn: null,
+    _particlesSpawnedSet: new Set<string>(),
   };
 }
 
@@ -448,6 +450,7 @@ export function flushPendingClears(state: GameState) {
   state.pendingClearTimestamp = 0;
   state.pendingClearDuration = 0;
   state.explosionClears = [];
+  state._particlesSpawnedSet.clear();
 }
 
 export function submitWord(state: GameState): { valid: boolean; score: number; word: string } {
