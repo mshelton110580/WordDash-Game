@@ -399,8 +399,8 @@ function clearTile(state: GameState, r: number, c: number) {
   if (!tile || tile.isClearing) return;
   // Hit ice on this tile
   hitIce(state, r, c);
-  // If tile has a mine overlay, queue detonation
-  if (tile.hasMine) {
+  // If tile has a mine (either specialType or legacy hasMine overlay), queue detonation
+  if (tile.hasMine || tile.specialType === 'mine') {
     state.mineDetonations.push({ row: r, col: c });
   }
   tile.isClearing = true; // Mark for deferred removal
@@ -932,7 +932,7 @@ export function useMinePowerUp(state: GameState) {
   state.powerUps.mine--;
   state.timerStarted = true;
   const tile = state.board[pos.row][pos.col]!;
-  tile.hasMine = true;
+  tile.specialType = 'mine';
   state.activePowerUp = null;
 }
 

@@ -200,16 +200,7 @@ class GameScene: SKScene {
             container.addChild(ice)
         }
 
-        // Mine overlay
-        if tile.hasMineOverlay {
-            let mine = SKShapeNode(circleOfRadius: 6)
-            mine.fillColor = .red
-            mine.strokeColor = .darkGray
-            mine.position = CGPoint(x: tileSize / 2 - 10, y: -tileSize / 2 + 10)
-            mine.zPosition = 3
-            mine.name = "mineOverlay"
-            container.addChild(mine)
-        }
+        // Mine overlay (legacy — mines now use specialType = .mine with tile_special_mine image)
 
         // Letter — positioned based on tile type
         let label = SKLabelNode(fontNamed: "AvenirNext-Bold")

@@ -354,23 +354,7 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       ctx.restore();
     }
 
-    // Mine overlay
-    if (tile.hasMine && !tile.specialType) {
-      ctx.fillStyle = 'rgba(249, 115, 22, 0.2)';
-      roundRect(ctx, x + 2, y + 2, tileSize - 4, tileSize - 4, CORNER_RADIUS - 2);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(249, 115, 22, 0.6)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([3, 3]);
-      roundRect(ctx, x + 2, y + 2, tileSize - 4, tileSize - 4, CORNER_RADIUS - 2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.font = `${tileSize * 0.16}px sans-serif`;
-      ctx.fillStyle = 'rgba(249, 115, 22, 0.9)';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('\u{1F4A5}', x + 3, y + tileSize - 2);
-    }
+    // Mine overlay (legacy hasMine — now mines use specialType='mine' with mine.png image)
 
     // Letter
     drawTileText(ctx, tile, x, y);

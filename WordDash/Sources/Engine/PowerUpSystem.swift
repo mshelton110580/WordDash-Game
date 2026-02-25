@@ -94,7 +94,7 @@ class PowerUpSystem {
         return placeSpecialTileRandomly(on: board, type: .crossLaser)
     }
 
-    /// Place a mine overlay on a random normal tile on the board
+    /// Place a mine on a random normal tile on the board (visible as mine tile)
     func placeMine() -> TileModel? {
         guard let board = boardModel else { return nil }
         guard consume(.mine) else { return nil }
@@ -108,7 +108,7 @@ class PowerUpSystem {
             }
         }
         guard let target = normalTiles.randomElement() else { return nil }
-        target.hasMineOverlay = true
+        target.specialType = .mine
         return target
     }
 
