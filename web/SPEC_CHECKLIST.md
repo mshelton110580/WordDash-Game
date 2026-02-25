@@ -128,8 +128,8 @@
 - [x] Level map screen: level list with lock/unlock
 - [x] Unlock next level on completion
 - [x] Main menu with Play button
-- [x] Store screen (functional: purchases, inventory, coin display)
-- [x] Settings screen (sound/haptics toggles, tutorial reset, progress reset)
+- [ ] Store screen (stub)
+- [ ] Settings screen (sound/haptics toggles)
 - [x] Correct failure message: "Time's Up!" for timed levels, "Out of Moves!" for ice levels
 
 ---
@@ -214,13 +214,13 @@
 
 > Add new feature requests below. Mark `[x]` when implemented.
 
-- [x] Web Audio sound effects (tile clicks, word chimes, explosions, level complete fanfare, coin earned)
-- [x] Interactive tutorial overlay for first-time users (6-step paginated, shown on first launch)
-- [x] Stats/leaderboard page (lifetime words, best streaks, per-level scores and stars)
-- [x] Store screen stub (fully functional: inventory display, purchase flow, affordability check)
-- [x] Settings screen (sound toggle, haptics toggle, tutorial reset, danger-zone progress reset)
-- [x] Power-up inventory persistence across game sessions (localStorage, loaded on game start)
-- [x] Laser power-up direction choice (Row ↔ / Column ↕ picker appears after laser is placed)
+- [ ] Web Audio sound effects (tile clicks, word chimes, explosions)
+- [ ] Interactive tutorial overlay for first-time users
+- [ ] Stats/leaderboard page (lifetime words, best streaks, per-level times)
+- [ ] Store screen stub (placeholder UI)
+- [ ] Settings screen (sound toggle, haptics toggle)
+- [ ] Power-up inventory persistence across game sessions (localStorage)
+- [ ] Laser power-up direction choice (tap then swipe to choose row vs column)
 - [x] Bombs, mines, and lasers appear as earned game tiles on the board (spawned by long words, visually distinct with colored backgrounds, glow borders, icons, and labels)
 - [x] Smooth diagonal drag: asymmetric hit zones (orthogonal 0.48r vs diagonal 0.32r) with drag-angle intent check (dot > 0.75) to strongly prefer orthogonal tiles and only allow diagonals with clear diagonal intent
 - [x] Power-up bombs, lasers, cross lasers, and mines place special tiles randomly on the board (keeping the tile's letter), triggering when included in a valid word

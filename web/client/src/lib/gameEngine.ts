@@ -258,7 +258,7 @@ export interface CoinFlyEvent {
 }
 
 // --- Enhanced Particle System: Multi-emitter with roles ---
-export type ParticleRole = 'chip' | 'dust' | 'sparkle' | 'debris' | 'shard' | 'tile3d';
+export type ParticleRole = 'chip' | 'dust' | 'sparkle' | 'debris';
 export type ParticleBlend = 'alpha' | 'add';
 
 export interface Particle {
@@ -269,23 +269,12 @@ export interface Particle {
   life: number;
   maxLife: number;
   color: string;
-  color2?: string;    // second color for shards (wood grain stripe)
-  color3?: string;    // tertiary (letter color on tile3d pieces)
   size: number;
-  w?: number;         // explicit width for non-uniform chips/shards
-  h?: number;         // explicit height
-  // 3D perspective: piece starts at z=0 (board level) and flies toward viewer (z grows)
-  z?: number;         // virtual depth: 0=board, positive=toward viewer
-  vz?: number;        // velocity along z axis (toward viewer)
-  zScale?: number;    // growth-toward-viewer speed (debris coming at camera)
-  drag?: number;      // per-frame velocity multiplier (air resistance)
   role: ParticleRole;
   blend: ParticleBlend;
   rotation: number;
   rotationSpeed: number;
-  shape: 'circle' | 'rect' | 'shard' | 'tile'; // tile = mini tile piece with rounded corners
-  points?: { x: number; y: number }[]; // polygon vertices for shards (unit coords)
-  letter?: string;    // optional letter fragment on tile3d pieces
+  shape: 'circle' | 'rect'; // rect for chips, circle for dust/sparkle
 }
 
 // --- Shockwave ring effect ---
@@ -921,43 +910,6 @@ export function useLaserPowerUp(state: GameState) {
   state.activePowerUp = null;
 }
 
-// Laser direction-choice variant: player taps a tile, then swipes to choose row vs column.
-// laserDirection: 'row' fires horizontally, 'col' fires vertically.
-export function useLaserPowerUpDirected(state: GameState, row: number, col: number, direction: 'row' | 'col') {
-  if (state.powerUps.laser <= 0) return;
-  const tile = state.board[row]?.[col];
-  if (!tile) return;
-  state.powerUps.laser--;
-  state.timerStarted = true;
-
-  // Award explosion points and clear the targeted row or column
-  state.laserEffects.push({ type: direction, row, col, timestamp: Date.now() });
-
-  if (direction === 'row') {
-    for (let c = 0; c < state.boardSize; c++) {
-      if (state.board[row]?.[c]) state.explosionClears.push({ row, col: c, specialType: 'laser' });
-      awardExplosionPoints(state, row, c);
-      hitIce(state, row, c);
-      clearTile(state, row, c);
-    }
-  } else {
-    for (let r = 0; r < state.boardSize; r++) {
-      if (state.board[r]?.[col]) state.explosionClears.push({ row: r, col, specialType: 'laser' });
-      awardExplosionPoints(state, r, col);
-      hitIce(state, r, col);
-      clearTile(state, r, col);
-    }
-  }
-
-  // Trigger deferred gravity+refill
-  const animDuration = state.boardSize * 25 + 350;
-  state.pendingClear = true;
-  state.pendingClearTimestamp = Date.now();
-  state.pendingClearDuration = animDuration;
-  state.pendingGravity = true;
-  state.activePowerUp = null;
-}
-
 // Cross Laser power-up: places a crossLaser special tile at a random position.
 // The tile keeps its letter and triggers when included in a valid word.
 export function useCrossLaserPowerUp(state: GameState) {
@@ -1062,43 +1014,9 @@ export function getClearThemeColor(specialType: SpecialType): string {
   }
 }
 
-// --- Helpers for particle spawning ---
-
-/** Slightly tint a hex color toward white or dark by mixing */
-function tintColor(hex: string, amount: number): string {
-  // amount: -1 = full black, 0 = unchanged, +1 = full white
-  const c = parseInt(hex.replace('#', ''), 16);
-  const r = Math.min(255, Math.max(0, ((c >> 16) & 0xff) + Math.round(amount * 255)));
-  const g = Math.min(255, Math.max(0, ((c >> 8) & 0xff) + Math.round(amount * 255)));
-  const b = Math.min(255, Math.max(0, (c & 0xff) + Math.round(amount * 255)));
-  return `rgb(${r},${g},${b})`;
-}
-
-/** Generate a random convex polygon shape for a shard (unit coords, centered at 0,0) */
-function makeShardPoints(w: number, h: number): { x: number; y: number }[] {
-  // 4–6 vertex polygon with slight random offsets — looks like a cracked tile fragment
-  const sides = 4 + Math.floor(Math.random() * 3);
-  const pts: { x: number; y: number }[] = [];
-  for (let i = 0; i < sides; i++) {
-    const baseAngle = (i / sides) * Math.PI * 2;
-    const jitter = (Math.random() - 0.5) * 0.4;
-    const r = 0.5 + (Math.random() - 0.5) * 0.35;
-    pts.push({
-      x: Math.cos(baseAngle + jitter) * r * w,
-      y: Math.sin(baseAngle + jitter) * r * h,
-    });
-  }
-  return pts;
-}
-
 // --- Multi-emitter particle spawner ---
-// Emitters:
-//   1. Tile3D  — mini tile-shaped pieces with wood texture, perspective z-fly toward viewer
-//   2. Shards  — irregular tile-fragment polygons, fly far in all directions
-//   3. Chips   — thin splinters of wood, heavy gravity, wide scatter
-//   4. Debris  — flat pieces rushing toward viewer with strong perspective growth
-//   5. Dust    — soft expanding circles, light drag
-//   6. Sparkles — additive glow, upward drift
+// Spawns chips (small rects, gravity), dust (soft circles, quick fade), and sparkles (additive, upward)
+// TUNED FOR VISIBILITY: particles are 3-4x larger and faster than v1
 export function spawnLayeredParticles(
   state: GameState,
   x: number,
@@ -1106,172 +1024,44 @@ export function spawnLayeredParticles(
   themeColor: string,
   intensity: 'normal' | 'big' | 'mega' = 'normal'
 ) {
-  const isBig = intensity !== 'normal';
-  const isMega = intensity === 'mega';
+  const chipCount = intensity === 'mega' ? 16 : intensity === 'big' ? 12 : 8;
+  const dustCount = intensity === 'mega' ? 10 : intensity === 'big' ? 7 : 5;
+  const sparkleCount = intensity === 'mega' ? 10 : intensity === 'big' ? 7 : 4;
 
-  // Counts — significantly more pieces for a dramatic board-spanning effect
-  const tile3dCount  = isMega ? 8  : isBig ? 6  : 4;   // 3D tile pieces flying at viewer
-  const shardCount   = isMega ? 16 : isBig ? 12 : 8;   // irregular polygons scattered wide
-  const chipCount    = isMega ? 20 : isBig ? 14 : 9;   // thin splinters
-  const debrisCount  = isMega ? 8  : isBig ? 6  : 4;   // toward-viewer chunks
-  const dustCount    = isMega ? 10 : isBig ? 7  : 5;
-  const sparkleCount = isMega ? 14 : isBig ? 10 : 6;
-
-  // Wood grain base colors: slightly vary the theme color
-  const grainLight = tintColor(themeColor, 0.20);
-  const grainDark  = tintColor(themeColor, -0.18);
-  const woodBase   = '#C49660';   // warm wood face color
-  const woodDark   = '#8B5E3C';   // darker wood edge/shadow color
-  const woodLight  = '#E8C490';   // light highlight on wood surface
-
-  // ── EMITTER 1: 3D Tile Pieces (mini board tiles flying toward the viewer) ────
-  // These look like actual tile fragments: rectangular, wood-textured, with a letter
-  // They start at board level (z=0), and fly outward AND toward the viewer.
-  // Perspective formula: apparent size = baseSize * (1 + z * perspectiveFactor)
-  const letters = 'AEIOUTNRSLDGBCMPFHVWYK'.split('');
-  for (let i = 0; i < tile3dCount; i++) {
-    // Wide scatter angle — full 360° with stronger horizontal bias
-    const angle = Math.random() * Math.PI * 2;
-    // Speed: mix of lateral movement AND strong z (toward-viewer) component
-    const lateralSpeed = 8 + Math.random() * 18;   // much faster lateral scatter
-    const zSpeed       = 0.06 + Math.random() * 0.14; // z grows per frame
-    const baseSize     = 10 + Math.random() * 14;   // base tile half-size
-    const life         = 38 + Math.random() * 28;
-    state.particles.push({
-      x: x + (Math.random() - 0.5) * 20,
-      y: y + (Math.random() - 0.5) * 20,
-      vx: Math.cos(angle) * lateralSpeed,
-      vy: Math.sin(angle) * lateralSpeed - 4,  // slight upward bias
-      z: 0,
-      vz: zSpeed,
-      life,
-      maxLife: life,
-      color: Math.random() < 0.5 ? woodBase : woodLight,  // tile face
-      color2: woodDark,    // tile edge / shadow
-      color3: Math.random() < 0.5 ? themeColor : '#2D1B0E', // letter color
-      size: baseSize,
-      w: baseSize * 2.0,
-      h: baseSize * 2.0,
-      drag: 0.968,
-      role: 'tile3d',
-      blend: 'alpha',
-      rotation: Math.random() * Math.PI * 2,
-      rotationSpeed: (Math.random() - 0.5) * 0.28,  // tumble as they fly
-      shape: 'tile',
-      letter: letters[Math.floor(Math.random() * letters.length)],
-    });
-  }
-
-  // ── EMITTER 2: Shards (tile fragments — irregular polygons, scattered far) ────
-  for (let i = 0; i < shardCount; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    // Much higher speeds so they reach neighboring tiles
-    const speed = 7 + Math.random() * 18;
-    const w = 8 + Math.random() * 16;
-    const h = 5 + Math.random() * 12;
-    // ~35% chance of a shard with strong z-toward-viewer component
-    const towardViewer = Math.random() < 0.35;
-    const life = 35 + Math.random() * 28;
-    state.particles.push({
-      x: x + (Math.random() - 0.5) * 18,
-      y: y + (Math.random() - 0.5) * 18,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - (towardViewer ? 2 : 5),
-      z: 0,
-      vz: towardViewer ? 0.10 + Math.random() * 0.15 : 0,
-      life,
-      maxLife: life,
-      color: Math.random() < 0.5 ? themeColor : grainLight,
-      color2: Math.random() < 0.5 ? grainDark : woodDark,
-      size: Math.max(w, h) / 2,
-      w,
-      h,
-      zScale: towardViewer ? 0.10 + Math.random() * 0.16 : 0,
-      drag: 0.975,
-      role: 'shard',
-      blend: 'alpha',
-      rotation: Math.random() * Math.PI * 2,
-      rotationSpeed: (Math.random() - 0.5) * 0.30,
-      shape: 'shard',
-      points: makeShardPoints(w, h),
-    });
-  }
-
-  // ── EMITTER 3: Chips (thin wood splinters, scattered very wide) ────────────────
+  // Wood chips: rectangles with gravity, randomized angle/speed for organic feel
   for (let i = 0; i < chipCount; i++) {
     const angle = Math.random() * Math.PI * 2;
-    // Increased speed range for wider spread
-    const speed = 6 + Math.random() * 16;
-    const w = 7 + Math.random() * 18;
-    const h = 1.5 + Math.random() * 4;
-    const life = 28 + Math.random() * 24;
+    const speed = 4 + Math.random() * 8; // 3x faster
     state.particles.push({
-      x: x + (Math.random() - 0.5) * 22,
-      y: y + (Math.random() - 0.5) * 22,
-      vx: Math.cos(angle) * speed,
+      x: x + (Math.random() - 0.5) * 16,
+      y: y + (Math.random() - 0.5) * 16,
+      vx: Math.cos(angle) * speed * (0.7 + Math.random() * 0.6),
       vy: Math.sin(angle) * speed - 4,
-      life,
-      maxLife: life,
-      color: Math.random() < 0.6 ? themeColor : grainDark,
-      size: w / 2,
-      w,
-      h,
-      drag: 0.982,
+      life: 25 + Math.random() * 20,
+      maxLife: 45,
+      color: themeColor,
+      size: 4 + Math.random() * 6, // 2-3x bigger
       role: 'chip',
       blend: 'alpha',
       rotation: Math.random() * Math.PI * 2,
-      rotationSpeed: (Math.random() - 0.5) * 0.55,
+      rotationSpeed: (Math.random() - 0.5) * 0.5,
       shape: 'rect',
     });
   }
 
-  // ── EMITTER 4: Debris (large chunks rushing toward viewer) ────────────────────
-  // These grow rapidly in size, simulating pieces flying straight at the camera
-  for (let i = 0; i < debrisCount; i++) {
-    // Start near center, spread across canvas as they "fly out"
-    const angle = Math.random() * Math.PI * 2;
-    const lateralSpeed = 3 + Math.random() * 7;
-    const startSize = 8 + Math.random() * 12;
-    const life = 22 + Math.random() * 18;
-    state.particles.push({
-      x: x + (Math.random() - 0.5) * 14,
-      y: y + (Math.random() - 0.5) * 14,
-      vx: Math.cos(angle) * lateralSpeed,
-      vy: Math.sin(angle) * lateralSpeed * 0.6 - 1,
-      z: 0,
-      vz: 0.20 + Math.random() * 0.22,  // very strong z = rushes toward viewer
-      life,
-      maxLife: life,
-      color: Math.random() < 0.5 ? themeColor : grainLight,
-      color2: grainDark,
-      size: startSize,
-      w: startSize * 2.4,
-      h: startSize * 1.6,
-      zScale: 0.22 + Math.random() * 0.24, // grow fast = perspective effect
-      drag: 0.93,
-      role: 'debris',
-      blend: 'alpha',
-      rotation: Math.random() * Math.PI * 2,
-      rotationSpeed: (Math.random() - 0.5) * 0.22,
-      shape: 'shard',
-      points: makeShardPoints(startSize * 2.4, startSize * 1.6),
-    });
-  }
-
-  // ── EMITTER 5: Dust puffs (soft expanding circles, spread far) ────────────────
+  // Dust puff: soft expanding circles, quick fade
   for (let i = 0; i < dustCount; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = 2 + Math.random() * 5;
+    const speed = 1.5 + Math.random() * 3;
     state.particles.push({
-      x: x + (Math.random() - 0.5) * 30,
-      y: y + (Math.random() - 0.5) * 30,
+      x: x + (Math.random() - 0.5) * 20,
+      y: y + (Math.random() - 0.5) * 20,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed - 0.8,
-      life: 20 + Math.random() * 20,
-      maxLife: 40,
+      life: 18 + Math.random() * 14,
+      maxLife: 32,
       color: themeColor,
-      size: 11 + Math.random() * 18,
-      drag: 0.958,
+      size: 10 + Math.random() * 14, // 2x bigger
       role: 'dust',
       blend: 'alpha',
       rotation: 0,
@@ -1280,20 +1070,19 @@ export function spawnLayeredParticles(
     });
   }
 
-  // ── EMITTER 6: Sparkles (additive glow, wide scatter) ─────────────────────────
+  // Sparkles: additive glow, upward drift, bright white/gold
   for (let i = 0; i < sparkleCount; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 3 + Math.random() * 8;
+    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.5;
+    const speed = 2.5 + Math.random() * 4;
     state.particles.push({
-      x: x + (Math.random() - 0.5) * 20,
-      y: y + (Math.random() - 0.5) * 20,
-      vx: Math.cos(angle) * speed,
+      x: x + (Math.random() - 0.5) * 12,
+      y: y + (Math.random() - 0.5) * 12,
+      vx: Math.cos(angle) * speed * 0.6,
       vy: Math.sin(angle) * speed - 2.5,
-      life: 28 + Math.random() * 26,
-      maxLife: 54,
-      color: isBig ? '#FFFFFF' : '#FFFBE6',
-      size: 3 + Math.random() * 6,
-      drag: 0.968,
+      life: 28 + Math.random() * 20,
+      maxLife: 48,
+      color: intensity === 'normal' ? '#FFFBE6' : '#FFFFFF',
+      size: 3 + Math.random() * 5, // 2x bigger
       role: 'sparkle',
       blend: 'add',
       rotation: 0,
@@ -1303,8 +1092,8 @@ export function spawnLayeredParticles(
   }
 
   // Performance cap: limit total particles
-  if (state.particles.length > 800) {
-    state.particles = state.particles.slice(-650);
+  if (state.particles.length > 500) {
+    state.particles = state.particles.slice(-400);
   }
 }
 
@@ -1373,66 +1162,16 @@ export function updateParticles(state: GameState) {
     p.x += p.vx;
     p.y += p.vy;
     p.rotation += p.rotationSpeed;
-
-    // Apply per-particle drag if set
-    if (p.drag) {
-      p.vx *= p.drag;
-      p.vy *= p.drag;
-    }
-
-    // Gravity & physics by role
-    if (p.role === 'tile3d') {
-      // 3D tile pieces: advance z (toward viewer) and apply gravity
-      // As z increases, the apparent rendered size grows (handled in GameBoard renderer)
-      if (p.vz) p.z = (p.z || 0) + p.vz;
-      // Use perspective: scale the w/h based on z depth
-      // z=0 → 1.0x, z=1.0 → ~4x (strong perspective foreshortening effect)
-      const perspScale = 1 + (p.z || 0) * 3.0;
-      const baseHalf = p.size;
-      p.w = baseHalf * 2.0 * perspScale;
-      p.h = baseHalf * 2.0 * perspScale;
-      p.vy += 0.10;  // moderate gravity while flying outward
-    } else if (p.role === 'chip') {
-      p.vy += 0.20;   // heavy gravity — splinters arc down fast
-    } else if (p.role === 'shard') {
-      // Advance z perspective for toward-viewer shards
-      if (p.vz && p.vz > 0) {
-        p.z = (p.z || 0) + p.vz;
-        const perspScale = 1 + (p.z || 0) * 2.2;
-        const baseW = p.size * 2;
-        const baseH = p.size * 1.4;
-        p.w = baseW * perspScale;
-        p.h = baseH * perspScale;
-        p.vy += 0.04;
-      } else if (p.zScale && p.zScale > 0) {
-        // Legacy grow mode
-        p.w = (p.w || p.size * 2) * (1 + p.zScale * 0.06);
-        p.h = (p.h || p.size) * (1 + p.zScale * 0.06);
-        p.vy += 0.04;
-      } else {
-        p.vy += 0.16;
-      }
-    } else if (p.role === 'debris') {
-      // Strong z advance — these rush at the viewer the fastest
-      if (p.vz && p.vz > 0) {
-        p.z = (p.z || 0) + p.vz;
-        const perspScale = 1 + (p.z || 0) * 4.0;  // very strong perspective
-        const baseW = p.size * 2.4;
-        const baseH = p.size * 1.6;
-        p.w = baseW * perspScale;
-        p.h = baseH * perspScale;
-      } else {
-        // Legacy grow mode
-        p.w = (p.w || p.size * 2) * (1 + (p.zScale || 0.15) * 0.09);
-        p.h = (p.h || p.size) * (1 + (p.zScale || 0.15) * 0.09);
-      }
-      p.vy += 0.06;
+    // Gravity varies by role
+    if (p.role === 'chip' || p.role === 'debris') {
+      p.vy += 0.15; // heavier gravity for chips
     } else if (p.role === 'dust') {
-      p.vy += 0.028;
+      p.vy += 0.02; // very light
+      p.vx *= 0.97; // drag
     } else if (p.role === 'sparkle') {
-      p.vy -= 0.04; // upward drift
+      p.vy -= 0.02; // slight upward drift
+      p.vx *= 0.98;
     }
-
     p.life--;
     return p.life > 0;
   });

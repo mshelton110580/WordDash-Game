@@ -1,6 +1,6 @@
 /**
  * WordDash — "Midnight Glass" Premium Dark UI
- * Main game page with coin economy, store, settings, stats, tutorial, continue system, and all game screens.
+ * Main game page with coin economy, store, continue system, daily login, and all game screens.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,6 @@ import {
   useShuffle,
   useBombPowerUp,
   useLaserPowerUp,
-  useLaserPowerUpDirected,
   useCrossLaserPowerUp,
   useMinePowerUp,
   useHintPowerUp,
@@ -34,15 +33,9 @@ import {
   continueWithCoins,
   canContinueWithAd,
   continueWithAd,
-  loadSettings,
-  saveSettings,
-  loadStats,
-  updateStatsOnLevelComplete,
   type CoinBreakdown,
   type ContinueSession,
   type PowerupInventory,
-  type GameSettings,
-  type GameStats,
 } from '@/lib/economy';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -51,64 +44,7 @@ const BG_URL = 'https://private-us-east-1.manuscdn.com/sessionFile/SLncvH8jfLBUJ
 
 const TILES_URL = 'https://private-us-east-1.manuscdn.com/sessionFile/SLncvH8jfLBUJFhJyzxsVd/sandbox/5W0yPyMY9zoRERJvmzw3Nf-img-3_1771961159000_na1fn_d29yZGRhc2gtdGlsZXMtaGVybw.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvU0xuY3ZIOGpmTEJVSkZoSnl6eHNWZC9zYW5kYm94LzVXMHlQeU1ZOXpvUkVSSnZtenczTmYtaW1nLTNfMTc3MTk2MTE1OTAwMF9uYTFmbl9kMjl5WkdSaGMyZ3RkR2xzWlhNdGFHVnlidy5wbmc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=Hk2p4vpvKgZsp8hQpLuPSENPDP9bGmjFt5cXZsKHXaGGPdFchTvE07Tlyq4lB8k~J8--O-N5Q5LRJPxWH7PuJfTyGpoa06QlbdgUFuPuURC4uP2v0wSv-05iZ35HbwY~UW08PXlMV3RTSK4YtBkeq~X1GvB6UQr7VgQuEYHssVE8KsUbzVZq61xc81OZS3aSDYF2fkZ6jSbEEdkcxxWkKx6TOhyr8dW9VEHgfyyqdEf0tw5Hz0RBlKEFbBNSNWJlmWD1DGT1zNneNCO7xQEpQFCwzDgCWpjsRSVlVQLOyyZmVOUz4q6IKgFobT5b-3ojn97WH3CFD5wlbdzQH56ABg__';
 
-type Screen = 'menu' | 'levels' | 'game' | 'result' | 'store' | 'continue' | 'settings' | 'stats';
-
-// ---- Web Audio Sound Engine ----
-class SoundEngine {
-  private ctx: AudioContext | null = null;
-  private enabled: boolean = true;
-
-  init() {
-    if (!this.ctx) {
-      try { this.ctx = new AudioContext(); } catch {}
-    }
-  }
-
-  setEnabled(v: boolean) { this.enabled = v; }
-
-  private beep(freq: number, dur: number, vol = 0.18, type: OscillatorType = 'sine') {
-    if (!this.enabled || !this.ctx) return;
-    try {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-      gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
-      osc.start(this.ctx.currentTime);
-      osc.stop(this.ctx.currentTime + dur);
-    } catch {}
-  }
-
-  playTileClick() { this.beep(600, 0.06, 0.12, 'square'); }
-
-  playWordSuccess() {
-    if (!this.enabled || !this.ctx) return;
-    const notes = [523, 659, 784, 1047];
-    notes.forEach((f, i) => setTimeout(() => this.beep(f, 0.12, 0.15, 'sine'), i * 60));
-  }
-
-  playWordFail() { this.beep(180, 0.18, 0.2, 'sawtooth'); }
-
-  playExplosion() {
-    if (!this.enabled || !this.ctx) return;
-    this.beep(120, 0.22, 0.25, 'sawtooth');
-    setTimeout(() => this.beep(80, 0.3, 0.18, 'square'), 40);
-  }
-
-  playLevelComplete() {
-    if (!this.enabled || !this.ctx) return;
-    const notes = [523, 659, 784, 1047, 1319];
-    notes.forEach((f, i) => setTimeout(() => this.beep(f, 0.18, 0.18, 'sine'), i * 80));
-  }
-
-  playCoinEarned() { this.beep(1047, 0.1, 0.1, 'sine'); }
-  playPowerUp() { this.beep(440, 0.15, 0.15, 'triangle'); }
-}
-
-export const soundEngine = new SoundEngine();
+type Screen = 'menu' | 'levels' | 'game' | 'result' | 'store' | 'continue';
 
 // --- Coin display with animated changes ---
 function CoinDisplay({ size = 'md', className = '' }: { size?: 'sm' | 'md' | 'lg'; className?: string }) {
@@ -125,7 +61,11 @@ function CoinDisplay({ size = 'md', className = '' }: { size?: 'sm' | 'md' | 'lg
     return unsub;
   }, []);
 
-  const sizeClasses = { sm: 'text-xs px-2 py-0.5', md: 'text-sm px-3 py-1', lg: 'text-base px-4 py-1.5' };
+  const sizeClasses = {
+    sm: 'text-xs px-2 py-0.5',
+    md: 'text-sm px-3 py-1',
+    lg: 'text-base px-4 py-1.5',
+  };
 
   return (
     <motion.div
@@ -152,74 +92,92 @@ export default function Home() {
   const [dailyRewardShown, setDailyRewardShown] = useState(false);
   const [dailyRewardAmount, setDailyRewardAmount] = useState(0);
   const [dailyRewardDay, setDailyRewardDay] = useState(0);
-  const [settings, setSettings] = useState<GameSettings>(loadSettings());
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [laserPickerState, setLaserPickerState] = useState<{ active: boolean; row: number; col: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => { soundEngine.setEnabled(settings.soundEnabled); }, [settings.soundEnabled]);
-
+  // Load word list on mount + check daily login
   useEffect(() => {
     loadWordList().then(() => setLoading(false));
     try {
       const saved = localStorage.getItem('worddash_progress');
       if (saved) setBestScores(JSON.parse(saved));
     } catch {}
+
+    // Check daily login reward
     const reward = DailyLoginManager.checkDailyReward();
     if (reward.canClaim) {
       setDailyRewardAmount(reward.amount);
       setDailyRewardDay(reward.day);
       setDailyRewardShown(true);
     }
-    if (!localStorage.getItem('worddash_tutorial_seen')) {
-      setTimeout(() => setShowTutorial(true), 800);
-    }
   }, []);
 
+  // Timer for timed levels
   useEffect(() => {
     if (screen === 'game' && gameState && gameState.level.goalType === 'scoreTimed' && !gameState.isGameOver) {
       timerRef.current = setInterval(() => {
         setGameState(prev => {
           if (!prev || prev.isGameOver || !prev.timerStarted) return prev;
           const next = { ...prev, timeRemaining: prev.timeRemaining - 1 };
-          if (next.timeRemaining <= 0) { next.timeRemaining = 0; if (!next.isWon) { next.isGameOver = true; next.stars = 0; } }
+          if (next.timeRemaining <= 0) {
+            next.timeRemaining = 0;
+            if (!next.isWon) {
+              next.isGameOver = true;
+              next.stars = 0;
+            }
+          }
           return next;
         });
       }, 1000);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [screen, gameState?.isGameOver, gameState?.level.goalType]);
 
+  // Handle game over transition
   useEffect(() => {
     if (gameState?.isGameOver && screen === 'game') {
       if (timerRef.current) clearInterval(timerRef.current);
       if (gameState.isWon) {
-        soundEngine.playLevelComplete();
+        // Calculate and award coins
         const lvl = gameState.level.levelNumber;
         const current = bestScores[lvl];
         const isReplay = !!current;
         const breakdown = calculateLevelCoins({
-          levelNumber: lvl, stars: gameState.stars, wordsFound: gameState.wordsFound,
-          maxStreakReached: gameState.maxStreakReached, maxCascadeReached: gameState.maxCascadeReached,
-          timeRemaining: gameState.timeRemaining, totalTime: gameState.level.timeLimitSeconds || 0,
-          movesRemaining: gameState.movesRemaining, goalType: gameState.level.goalType, isReplay,
+          levelNumber: lvl,
+          stars: gameState.stars,
+          wordsFound: gameState.wordsFound,
+          maxStreakReached: gameState.maxStreakReached,
+          maxCascadeReached: gameState.maxCascadeReached,
+          timeRemaining: gameState.timeRemaining,
+          totalTime: gameState.level.timeLimitSeconds || 0,
+          movesRemaining: gameState.movesRemaining,
+          goalType: gameState.level.goalType,
+          isReplay,
         });
         setCoinBreakdown(breakdown);
         CoinManager.addCoins(breakdown.total, 'levelBase');
-        updateStatsOnLevelComplete({
-          levelNumber: lvl, wordsFound: gameState.wordsFound, score: gameState.score,
-          stars: gameState.stars, maxStreak: gameState.maxStreakReached,
-          maxCascade: gameState.maxCascadeReached, timeRemaining: gameState.timeRemaining,
-          goalType: gameState.level.goalType, coinsEarned: breakdown.total,
+
+        // Save power-up inventory
+        saveInventory({
+          hint: gameState.powerUps.hint,
+          bomb: gameState.powerUps.bomb,
+          laser: gameState.powerUps.laser,
+          crossLaser: gameState.powerUps.crossLaser,
+          mine: gameState.powerUps.mine,
         });
-        saveInventory({ hint: gameState.powerUps.hint, bomb: gameState.powerUps.bomb, laser: gameState.powerUps.laser, crossLaser: gameState.powerUps.crossLaser, mine: gameState.powerUps.mine });
+
         if (!current || gameState.score > current.score || gameState.stars > current.stars) {
-          const updated = { ...bestScores, [lvl]: { score: Math.max(gameState.score, current?.score || 0), stars: Math.max(gameState.stars, current?.stars || 0) } };
+          const updated = {
+            ...bestScores,
+            [lvl]: { score: Math.max(gameState.score, current?.score || 0), stars: Math.max(gameState.stars, current?.stars || 0) },
+          };
           setBestScores(updated);
           localStorage.setItem('worddash_progress', JSON.stringify(updated));
         }
         setTimeout(() => setScreen('result'), 800);
       } else {
+        // Level failed — show continue modal
         setCoinBreakdown(null);
         setTimeout(() => setScreen('continue'), 800);
       }
@@ -227,9 +185,9 @@ export default function Home() {
   }, [gameState?.isGameOver]);
 
   const startLevel = useCallback((level: LevelConfig) => {
-    soundEngine.init();
     setSelectedLevel(level);
     const state = createGameState(level);
+    // Load persisted power-up inventory
     const inv = loadInventory();
     state.powerUps.hint = inv.hint;
     state.powerUps.bomb = inv.bomb;
@@ -238,52 +196,64 @@ export default function Home() {
     state.powerUps.mine = inv.mine;
     setGameState(state);
     setContinueSession(createContinueSession());
-    setLaserPickerState(null);
     setScreen('game');
   }, []);
 
   const handleWordSubmitted = useCallback((word: string, score: number, valid: boolean) => {
     if (valid) {
-      soundEngine.playWordSuccess();
-      if (score > 50) soundEngine.playExplosion();
       toast.success(`"${word}" +${score}`, { duration: 1500 });
     } else if (word.length >= 3) {
-      soundEngine.playWordFail();
       toast.error(`"${word}" not in dictionary`, { duration: 1200 });
     }
   }, []);
 
-  const handleStateChange = useCallback((state: GameState) => { setGameState({ ...state }); }, []);
+  const handleStateChange = useCallback((state: GameState) => {
+    setGameState({ ...state });
+  }, []);
 
   const handleNextLevel = useCallback(() => {
     if (!selectedLevel) return;
     const nextIdx = LEVELS.findIndex(l => l.levelNumber === selectedLevel.levelNumber + 1);
-    if (nextIdx >= 0) startLevel(LEVELS[nextIdx]); else setScreen('levels');
+    if (nextIdx >= 0) {
+      startLevel(LEVELS[nextIdx]);
+    } else {
+      setScreen('levels');
+    }
   }, [selectedLevel, startLevel]);
 
   const handleContinue = useCallback((method: 'coins' | 'ad') => {
     if (!gameState || !selectedLevel) return;
-    const success = method === 'coins' ? continueWithCoins(continueSession) : continueWithAd(continueSession);
-    if (!success) { toast.error('Not enough coins!'); return; }
+    let success = false;
+    if (method === 'coins') {
+      success = continueWithCoins(continueSession);
+    } else {
+      success = continueWithAd(continueSession);
+    }
+    if (!success) {
+      toast.error('Not enough coins!');
+      return;
+    }
+    // Resume the level
+    const isTimedLevel = gameState.level.goalType === 'scoreTimed';
     const updated = { ...gameState, isGameOver: false };
-    if (gameState.level.goalType === 'scoreTimed') updated.timeRemaining += GameEconomyConfig.continueTimedBonus;
-    else updated.movesRemaining += GameEconomyConfig.continueMoveBonus;
+    if (isTimedLevel) {
+      updated.timeRemaining += GameEconomyConfig.continueTimedBonus;
+    } else {
+      updated.movesRemaining += GameEconomyConfig.continueMoveBonus;
+    }
     setGameState(updated);
     setScreen('game');
   }, [gameState, selectedLevel, continueSession]);
 
   const claimDailyReward = useCallback(() => {
     const amount = DailyLoginManager.claimDailyReward();
-    if (amount > 0) { soundEngine.playCoinEarned(); toast.success(`Daily reward: +${amount} coins!`, { duration: 2000 }); }
+    if (amount > 0) {
+      toast.success(`Daily reward: +${amount} coins!`, { duration: 2000 });
+    }
     setDailyRewardShown(false);
   }, []);
 
-  const handleSettingsChange = useCallback((newSettings: GameSettings) => {
-    setSettings(newSettings);
-    saveSettings(newSettings);
-    soundEngine.setEnabled(newSettings.soundEnabled);
-  }, []);
-
+  // --- Screens ---
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0e27' }}>
@@ -299,52 +269,48 @@ export default function Home() {
     <div className="min-h-screen relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0a0e27 0%, #1a1040 50%, #0d1530 100%)' }}>
       <div className="absolute inset-0 opacity-30" style={{ backgroundImage: `url(${BG_URL})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
       <div className="relative z-10">
+        {/* Daily Login Reward Modal */}
         <AnimatePresence>
-          {showTutorial && <TutorialOverlay onDismiss={() => { setShowTutorial(false); localStorage.setItem('worddash_tutorial_seen', 'true'); }} />}
-        </AnimatePresence>
-        <AnimatePresence>
-          {dailyRewardShown && !showTutorial && (
+          {dailyRewardShown && (
             <DailyLoginModal day={dailyRewardDay} amount={dailyRewardAmount} onClaim={claimDailyReward} />
           )}
         </AnimatePresence>
+
         <AnimatePresence mode="wait">
-          {screen === 'menu' && <MenuScreen key="menu" onPlay={() => setScreen('levels')} onStore={() => setScreen('store')} onSettings={() => setScreen('settings')} onStats={() => setScreen('stats')} />}
+          {screen === 'menu' && <MenuScreen key="menu" onPlay={() => setScreen('levels')} onStore={() => setScreen('store')} />}
           {screen === 'store' && <StoreScreen key="store" onBack={() => setScreen('menu')} />}
-          {screen === 'settings' && <SettingsScreen key="settings" settings={settings} onBack={() => setScreen('menu')} onChange={handleSettingsChange} />}
-          {screen === 'stats' && <StatsScreen key="stats" onBack={() => setScreen('menu')} />}
-          {screen === 'levels' && <LevelSelectScreen key="levels" onBack={() => setScreen('menu')} onSelectLevel={startLevel} bestScores={bestScores} />}
+          {screen === 'levels' && (
+            <LevelSelectScreen key="levels" onBack={() => setScreen('menu')} onSelectLevel={startLevel} bestScores={bestScores} />
+          )}
           {screen === 'game' && gameState && (
             <GameScreen
               key="game"
               gameState={gameState}
               onStateChange={handleStateChange}
               onWordSubmitted={handleWordSubmitted}
-              laserPickerState={laserPickerState}
-              onLaserPickerChange={setLaserPickerState}
-              onLaserDirected={(row, col, dir) => {
-                useLaserPowerUpDirected(gameState, row, col, dir);
-                handleStateChange({ ...gameState });
-                setLaserPickerState(null);
-                toast.info(`⚡ Laser fired ${dir === 'row' ? 'horizontally' : 'vertically'}!`);
-              }}
-              onQuit={() => {
-                if (timerRef.current) clearInterval(timerRef.current);
-                saveInventory({ hint: gameState.powerUps.hint, bomb: gameState.powerUps.bomb, laser: gameState.powerUps.laser, crossLaser: gameState.powerUps.crossLaser, mine: gameState.powerUps.mine });
-                setScreen('levels');
-              }}
+              onQuit={() => { if (timerRef.current) clearInterval(timerRef.current); saveInventory({ hint: gameState.powerUps.hint, bomb: gameState.powerUps.bomb, laser: gameState.powerUps.laser, crossLaser: gameState.powerUps.crossLaser, mine: gameState.powerUps.mine }); setScreen('levels'); }}
             />
           )}
           {screen === 'result' && gameState && (
-            <ResultScreen key="result" gameState={gameState} coinBreakdown={coinBreakdown}
+            <ResultScreen
+              key="result"
+              gameState={gameState}
+              coinBreakdown={coinBreakdown}
               onReplay={() => selectedLevel && startLevel(selectedLevel)}
-              onLevels={() => setScreen('levels')} onNextLevel={handleNextLevel}
+              onLevels={() => setScreen('levels')}
+              onNextLevel={handleNextLevel}
               hasNextLevel={!!selectedLevel && selectedLevel.levelNumber < LEVELS.length}
             />
           )}
           {screen === 'continue' && gameState && (
-            <ContinueScreen key="continue" gameState={gameState} session={continueSession}
-              onContinue={handleContinue} onRetry={() => selectedLevel && startLevel(selectedLevel)}
-              onLevels={() => setScreen('levels')} onStore={() => setScreen('store')}
+            <ContinueScreen
+              key="continue"
+              gameState={gameState}
+              session={continueSession}
+              onContinue={handleContinue}
+              onRetry={() => selectedLevel && startLevel(selectedLevel)}
+              onLevels={() => setScreen('levels')}
+              onStore={() => setScreen('store')}
             />
           )}
         </AnimatePresence>
@@ -353,90 +319,86 @@ export default function Home() {
   );
 }
 
-// --- Tutorial Overlay ---
-const TUTORIAL_STEPS = [
-  { title: 'Drag to Spell Words', icon: '✋', body: 'Touch and drag across adjacent tiles (including diagonals) to connect letters. Form words of 3+ letters to score!' },
-  { title: 'Valid Words Clear the Board', icon: '💥', body: 'When you release, your word is checked against the dictionary. Valid words explode — tiles fall down and new ones spawn from the top.' },
-  { title: 'Earn Special Tiles', icon: '⭐', body: 'Long words spawn special tiles at the last letter:\n• 5 letters → 💣 Bomb (clears 3×3)\n• 6 letters → ⚡ Laser (row or column)\n• 7 letters → ✦ Cross Laser (row + column)\n• 8+ letters → ★ Wildcard (acts as any letter)' },
-  { title: 'Build Streaks', icon: '🔥', body: 'Spell valid words within 4 seconds of each other to build a streak multiplier. Increases by 0.2× per step, up to 3× max!' },
-  { title: 'Power-Ups', icon: '💡', body: 'Use the toolbar below the board:\n• 💡 Hint — highlights a valid word\n• 💣 Bomb — places a bomb on a random tile\n• ⚡ Laser — choose row or column direction\n• 💥 Mine — a trap that detonates on clear\n• 🔀 Shuffle — randomizes all letters' },
-  { title: 'Earn Coins', icon: '🪙', body: 'Complete levels to earn coins based on score, stars, long words, streaks, and cascades. Buy more power-ups in the Store. You start with 500 coins!' },
-];
-
-function TutorialOverlay({ onDismiss }: { onDismiss: () => void }) {
-  const [step, setStep] = useState(0);
-  const total = TUTORIAL_STEPS.length;
-  const current = TUTORIAL_STEPS[step];
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-      <motion.div key={step} initial={{ scale: 0.85, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.85, opacity: 0, y: -20 }} transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-        className="w-full max-w-sm p-6 rounded-2xl border border-white/10 bg-gradient-to-b from-[#1a1040] to-[#0d1530] text-center">
-        <div className="text-5xl mb-3">{current.icon}</div>
-        <h2 className="text-lg font-bold text-white mb-3">{current.title}</h2>
-        <p className="text-white/60 text-sm leading-relaxed mb-5 whitespace-pre-line">{current.body}</p>
-        <div className="flex justify-center gap-1.5 mb-5">
-          {TUTORIAL_STEPS.map((_, i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all ${i === step ? 'w-6 bg-emerald-400' : 'w-1.5 bg-white/20'}`} />
-          ))}
-        </div>
-        <div className="flex gap-3">
-          {step > 0 && <Button variant="outline" onClick={() => setStep(s => s - 1)} className="flex-1 border-white/10 text-white/60 hover:text-white">← Back</Button>}
-          {step < total - 1
-            ? <Button onClick={() => setStep(s => s + 1)} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl">Next →</Button>
-            : <Button onClick={onDismiss} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl">Let's Play! 🎮</Button>
-          }
-        </div>
-        <button onClick={onDismiss} className="mt-3 text-white/30 text-xs hover:text-white/60 transition-colors">Skip tutorial</button>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 // --- Daily Login Modal ---
 function DailyLoginModal({ day, amount, onClaim }: { day: number; amount: number; onClaim: () => void }) {
   const rewards = GameEconomyConfig.dailyRewards;
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}
-        className="w-full max-w-sm p-6 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#1a1040] to-[#0d1530] text-center">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+    >
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.8, opacity: 0 }}
+        className="w-full max-w-sm p-6 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#1a1040] to-[#0d1530] text-center"
+      >
         <div className="text-3xl mb-2">🎁</div>
         <h2 className="text-xl font-bold text-white mb-1">Daily Login Reward</h2>
         <p className="text-white/50 text-sm mb-4">Day {day} of 7</p>
+
         <div className="flex justify-center gap-1.5 mb-4">
           {rewards.map((r, i) => (
-            <div key={i} className={`flex flex-col items-center px-2 py-1.5 rounded-lg text-[10px] ${i+1===day ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold' : i+1<day ? 'bg-white/5 text-white/30 line-through' : 'bg-white/5 text-white/40'}`}>
-              <span>D{i+1}</span><span className="text-amber-400 font-mono">{r}</span>
+            <div
+              key={i}
+              className={`flex flex-col items-center px-2 py-1.5 rounded-lg text-[10px] ${
+                i + 1 === day
+                  ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold'
+                  : i + 1 < day
+                  ? 'bg-white/5 text-white/30 line-through'
+                  : 'bg-white/5 text-white/40'
+              }`}
+            >
+              <span>D{i + 1}</span>
+              <span className="text-amber-400 font-mono">{r}</span>
             </div>
           ))}
         </div>
-        <div className="text-2xl font-bold text-amber-400 mb-4"><span className="text-amber-300">+{amount}</span> 🪙</div>
-        <Button onClick={onClaim} className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl">Claim Reward</Button>
+
+        <div className="text-2xl font-bold text-amber-400 mb-4">
+          <span className="text-amber-300">+{amount}</span> 🪙
+        </div>
+
+        <Button onClick={onClaim} className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl">
+          Claim Reward
+        </Button>
       </motion.div>
     </motion.div>
   );
 }
 
 // --- Menu Screen ---
-function MenuScreen({ onPlay, onStore, onSettings, onStats }: { onPlay: () => void; onStore: () => void; onSettings: () => void; onStats: () => void }) {
+function MenuScreen({ onPlay, onStore }: { onPlay: () => void; onStore: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-h-screen flex flex-col items-center justify-center px-4">
-      <div className="absolute top-4 right-4 flex items-center gap-2">
-        <button onClick={onStats} className="text-white/40 hover:text-white/80 transition-colors text-lg p-1.5 rounded-lg hover:bg-white/5" title="Stats">📊</button>
-        <button onClick={onSettings} className="text-white/40 hover:text-white/80 transition-colors text-lg p-1.5 rounded-lg hover:bg-white/5" title="Settings">⚙️</button>
+      <div className="absolute top-4 right-4">
         <CoinDisplay size="md" />
       </div>
-      <motion.h1 className="text-5xl md:text-7xl font-bold mb-2 drop-shadow-2xl"
-        style={{ background: 'linear-gradient(135deg, #10b981 0%, #34d399 30%, #fbbf24 60%, #f59e0b 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '-0.02em' }}
-        initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1, type: 'spring', stiffness: 100 }}>
+      <motion.h1
+        className="text-5xl md:text-7xl font-bold mb-2 drop-shadow-2xl"
+        style={{
+          background: 'linear-gradient(135deg, #10b981 0%, #34d399 30%, #fbbf24 60%, #f59e0b 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          fontFamily: "'Space Grotesk', sans-serif",
+          letterSpacing: '-0.02em',
+        }}
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.1, type: 'spring', stiffness: 100 }}
+      >
         WordDash
       </motion.h1>
       <motion.img src={TILES_URL} alt="Floating tiles" className="w-80 md:w-[28rem] mb-8 opacity-80" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 0.8 }} transition={{ delay: 0.3 }} />
       <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} className="flex gap-4">
-        <Button onClick={onPlay} size="lg" className="text-lg px-12 py-6 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all hover:scale-105">Play</Button>
-        <Button onClick={onStore} size="lg" variant="outline" className="text-lg px-8 py-6 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 font-bold rounded-xl transition-all hover:scale-105">🛒 Store</Button>
+        <Button onClick={onPlay} size="lg" className="text-lg px-12 py-6 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all hover:shadow-emerald-400/40 hover:scale-105">
+          Play
+        </Button>
+        <Button onClick={onStore} size="lg" variant="outline" className="text-lg px-8 py-6 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 font-bold rounded-xl transition-all hover:scale-105">
+          🛒 Store
+        </Button>
       </motion.div>
       <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-6 text-white/30 text-sm">
         Drag across tiles to form words. Longer words earn special tiles!
@@ -445,129 +407,30 @@ function MenuScreen({ onPlay, onStore, onSettings, onStats }: { onPlay: () => vo
   );
 }
 
-// --- Settings Screen ---
-function SettingsScreen({ settings, onBack, onChange }: { settings: GameSettings; onBack: () => void; onChange: (s: GameSettings) => void }) {
-  const handleReset = () => {
-    if (confirm('Reset all progress, coins, and stats? This cannot be undone.')) {
-      localStorage.clear();
-      CoinManager.resetToStarting();
-      toast.success('Progress reset!');
-    }
-  };
-  return (
-    <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="min-h-screen px-4 py-8">
-      <div className="max-w-lg mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <Button variant="ghost" onClick={onBack} className="text-white/60 hover:text-white">← Back</Button>
-          <h2 className="text-xl font-bold text-white">Settings</h2>
-          <div className="w-16" />
-        </div>
-        <div className="space-y-4">
-          <ToggleRow label="Sound Effects" description="Audio feedback for tiles, words, and explosions" icon="🔊" value={settings.soundEnabled} onChange={v => onChange({ ...settings, soundEnabled: v })} />
-          <ToggleRow label="Haptics" description="Vibration feedback on word submission (mobile)" icon="📳" value={settings.hapticsEnabled} onChange={v => onChange({ ...settings, hapticsEnabled: v })} />
-          <div className="p-4 rounded-xl border border-white/10 bg-white/5">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-white font-medium text-sm">Tutorial</div>
-                <div className="text-white/40 text-xs mt-0.5">Show the how-to-play guide again</div>
-              </div>
-              <Button onClick={() => { localStorage.removeItem('worddash_tutorial_seen'); toast.success('Tutorial will show on next launch.'); }} variant="outline" size="sm" className="border-white/10 text-white/60 hover:text-white text-xs">Reset</Button>
-            </div>
-          </div>
-          <div className="pt-4 border-t border-white/5">
-            <p className="text-white/30 text-xs mb-3 uppercase tracking-wider">Danger Zone</p>
-            <Button onClick={handleReset} className="w-full bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded-xl font-bold" variant="outline">🗑 Reset All Progress</Button>
-            <p className="text-white/20 text-[10px] text-center mt-2">Clears all levels, coins, stats, and inventory</p>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function ToggleRow({ label, description, icon, value, onChange }: { label: string; description: string; icon: string; value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/5">
-      <span className="text-2xl w-8 text-center">{icon}</span>
-      <div className="flex-1">
-        <div className="text-white font-medium text-sm">{label}</div>
-        <div className="text-white/40 text-xs mt-0.5">{description}</div>
-      </div>
-      <button onClick={() => onChange(!value)} className={`relative w-12 h-6 rounded-full transition-colors ${value ? 'bg-emerald-500' : 'bg-white/20'}`}>
-        <motion.div animate={{ x: value ? 24 : 2 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow" />
-      </button>
-    </div>
-  );
-}
-
-// --- Stats Screen ---
-function StatsScreen({ onBack }: { onBack: () => void }) {
-  const stats: GameStats = loadStats();
-  const statRows = [
-    { label: 'Total Words Found', value: stats.totalWordsFound.toLocaleString(), icon: '📝' },
-    { label: 'Total Score', value: stats.totalScore.toLocaleString(), icon: '🏆' },
-    { label: 'Levels Completed', value: `${stats.levelsCompleted} / ${LEVELS.length}`, icon: '🎯' },
-    { label: 'Best Streak', value: `${stats.bestStreak.toFixed(1)}×`, icon: '🔥' },
-    { label: 'Best Cascade', value: String(stats.bestCascade), icon: '⚡' },
-    { label: 'Longest Word', value: stats.longestWord || '—', icon: '🔤' },
-    { label: 'Total Coins Earned', value: stats.totalCoinsEarned.toLocaleString(), icon: '🪙' },
-    { label: 'Sessions Played', value: stats.sessionsPlayed.toLocaleString(), icon: '🎮' },
-    { label: 'Last Played', value: stats.lastPlayedDate || 'Never', icon: '📅' },
-  ];
-  return (
-    <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="min-h-screen px-4 py-8">
-      <div className="max-w-lg mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <Button variant="ghost" onClick={onBack} className="text-white/60 hover:text-white">← Back</Button>
-          <h2 className="text-xl font-bold text-white">Stats</h2>
-          <CoinDisplay size="sm" />
-        </div>
-        <div className="space-y-2 mb-6">
-          {statRows.map((row, i) => (
-            <motion.div key={row.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-              className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5">
-              <div className="flex items-center gap-3"><span className="text-lg">{row.icon}</span><span className="text-white/60 text-sm">{row.label}</span></div>
-              <span className="text-white font-mono font-bold text-sm">{row.value}</span>
-            </motion.div>
-          ))}
-        </div>
-        <h3 className="text-white/50 text-xs uppercase tracking-wider mb-3">Level Performance</h3>
-        <div className="space-y-2">
-          {LEVELS.map((lvl, i) => {
-            const stars = stats.levelStars[lvl.levelNumber] || 0;
-            const best = stats.levelBestScores[lvl.levelNumber] || 0;
-            return (
-              <motion.div key={lvl.levelNumber} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 + i * 0.04 }}
-                className={`flex items-center justify-between p-3 rounded-xl border ${stars > 0 ? 'border-white/10 bg-white/5' : 'border-white/5 bg-white/[0.02] opacity-50'}`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-white/40 text-xs font-mono w-6">L{lvl.levelNumber}</span>
-                  <div className="flex gap-0.5">{[1,2,3].map(s => <span key={s} className={`text-xs ${stars >= s ? 'text-amber-400' : 'text-white/15'}`}>★</span>)}</div>
-                </div>
-                <span className="text-white/50 font-mono text-xs">{best > 0 ? best.toLocaleString() : '—'}</span>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
 // --- Store Screen ---
 function StoreScreen({ onBack }: { onBack: () => void }) {
   const [inventory, setInventory] = useState<PowerupInventory>(loadInventory());
   const [, forceUpdate] = useState(0);
+
   const powerups = [
     { key: 'hint' as const, icon: '💡', name: 'Hint', desc: 'Highlights a valid word on the board', cost: GameEconomyConfig.storePrices.hint },
     { key: 'bomb' as const, icon: '💣', name: 'Bomb', desc: 'Places a bomb tile that clears 3×3', cost: GameEconomyConfig.storePrices.bomb },
-    { key: 'laser' as const, icon: '⚡', name: 'Laser', desc: 'Places a laser — choose row or column', cost: GameEconomyConfig.storePrices.laser },
-    { key: 'crossLaser' as const, icon: '✦', name: 'Cross Laser', desc: 'Places a cross laser clearing row + column', cost: GameEconomyConfig.storePrices.crossLaser },
+    { key: 'laser' as const, icon: '⚡', name: 'Laser', desc: 'Places a laser tile that clears a row or column', cost: GameEconomyConfig.storePrices.laser },
+    { key: 'crossLaser' as const, icon: '✦', name: 'Cross Laser', desc: 'Places a cross laser that clears row + column', cost: GameEconomyConfig.storePrices.crossLaser },
     { key: 'mine' as const, icon: '💥', name: 'Mine', desc: 'Places a mine that detonates on clear', cost: GameEconomyConfig.storePrices.mine },
   ];
+
   const handlePurchase = (key: keyof PowerupInventory) => {
-    if (purchasePowerup(key)) { soundEngine.playCoinEarned(); setInventory(loadInventory()); forceUpdate(n => n + 1); toast.success(`Purchased ${key}!`); }
-    else toast.error('Not enough coins!');
+    const success = purchasePowerup(key);
+    if (success) {
+      setInventory(loadInventory());
+      forceUpdate(n => n + 1);
+      toast.success(`Purchased ${key}!`);
+    } else {
+      toast.error('Not enough coins!');
+    }
   };
+
   return (
     <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="min-h-screen px-4 py-8">
       <div className="max-w-lg mx-auto">
@@ -576,13 +439,18 @@ function StoreScreen({ onBack }: { onBack: () => void }) {
           <h2 className="text-xl font-bold text-white">Power-Up Store</h2>
           <CoinDisplay size="sm" />
         </div>
+
         <div className="space-y-3">
           {powerups.map((pu) => {
             const owned = inventory[pu.key];
             const affordable = CoinManager.canAfford(pu.cost);
             return (
-              <motion.div key={pu.key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm">
+              <motion.div
+                key={pu.key}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm"
+              >
                 <div className="text-3xl w-12 text-center">{pu.icon}</div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -591,8 +459,16 @@ function StoreScreen({ onBack }: { onBack: () => void }) {
                   </div>
                   <p className="text-xs text-white/40 mt-0.5">{pu.desc}</p>
                 </div>
-                <Button onClick={() => handlePurchase(pu.key)} disabled={!affordable} size="sm"
-                  className={`rounded-lg font-bold ${affordable ? 'bg-amber-500 hover:bg-amber-400 text-black' : 'bg-white/10 text-white/30 cursor-not-allowed'}`}>
+                <Button
+                  onClick={() => handlePurchase(pu.key)}
+                  disabled={!affordable}
+                  size="sm"
+                  className={`rounded-lg font-bold ${
+                    affordable
+                      ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                      : 'bg-white/10 text-white/30 cursor-not-allowed'
+                  }`}
+                >
                   🪙 {pu.cost}
                 </Button>
               </motion.div>
@@ -605,7 +481,11 @@ function StoreScreen({ onBack }: { onBack: () => void }) {
 }
 
 // --- Level Select ---
-function LevelSelectScreen({ onBack, onSelectLevel, bestScores }: { onBack: () => void; onSelectLevel: (level: LevelConfig) => void; bestScores: Record<number, { score: number; stars: number }> }) {
+function LevelSelectScreen({ onBack, onSelectLevel, bestScores }: {
+  onBack: () => void;
+  onSelectLevel: (level: LevelConfig) => void;
+  bestScores: Record<number, { score: number; stars: number }>;
+}) {
   return (
     <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="min-h-screen px-4 py-8">
       <div className="max-w-lg mx-auto">
@@ -620,14 +500,32 @@ function LevelSelectScreen({ onBack, onSelectLevel, bestScores }: { onBack: () =
             const prevBest = bestScores[level.levelNumber - 1];
             const isUnlocked = level.levelNumber === 1 || !!prevBest;
             return (
-              <motion.button key={level.levelNumber} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: level.levelNumber * 0.05 }}
-                onClick={() => isUnlocked && onSelectLevel(level)} disabled={!isUnlocked}
-                className={`relative p-5 rounded-xl border transition-all ${isUnlocked ? 'border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10' : 'border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed'}`}>
+              <motion.button
+                key={level.levelNumber}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: level.levelNumber * 0.05 }}
+                onClick={() => isUnlocked && onSelectLevel(level)}
+                disabled={!isUnlocked}
+                className={`relative p-5 rounded-xl border transition-all ${
+                  isUnlocked
+                    ? 'border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10'
+                    : 'border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed'
+                }`}
+              >
                 <div className="text-2xl font-bold text-white mb-1">{level.levelNumber}</div>
-                <div className="text-xs text-white/40 mb-2">{level.goalType === 'scoreTimed' ? `Score ${level.targetScore}` : `Clear ${level.iceTilesToClearTarget} ice`}</div>
-                <div className="flex gap-1 justify-center">{[1,2,3].map(s => <span key={s} className={`text-sm ${best && best.stars >= s ? 'text-amber-400' : 'text-white/15'}`}>★</span>)}</div>
+                <div className="text-xs text-white/40 mb-2">
+                  {level.goalType === 'scoreTimed' ? `Score ${level.targetScore}` : `Clear ${level.iceTilesToClearTarget} ice`}
+                </div>
+                <div className="flex gap-1 justify-center">
+                  {[1, 2, 3].map(s => (
+                    <span key={s} className={`text-sm ${best && best.stars >= s ? 'text-amber-400' : 'text-white/15'}`}>★</span>
+                  ))}
+                </div>
                 {best && <div className="text-[10px] text-white/30 mt-1 font-mono">Best: {best.score}</div>}
-                {!isUnlocked && <div className="absolute inset-0 flex items-center justify-center"><span className="text-2xl">🔒</span></div>}
+                {!isUnlocked && (
+                  <div className="absolute inset-0 flex items-center justify-center"><span className="text-2xl">🔒</span></div>
+                )}
               </motion.button>
             );
           })}
@@ -637,128 +535,144 @@ function LevelSelectScreen({ onBack, onSelectLevel, bestScores }: { onBack: () =
   );
 }
 
-// --- Laser Direction Picker ---
-function LaserDirectionPicker({ onChoose, onCancel }: { onChoose: (dir: 'row' | 'col') => void; onCancel: () => void }) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="flex items-center gap-2 justify-center mt-2">
-      <span className="text-white/50 text-xs">⚡ Laser direction:</span>
-      <button onClick={() => onChoose('row')} className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold hover:bg-blue-500/30 transition-colors">↔ Row</button>
-      <button onClick={() => onChoose('col')} className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold hover:bg-blue-500/30 transition-colors">↕ Column</button>
-      <button onClick={onCancel} className="px-2 py-1.5 rounded-lg bg-white/5 text-white/40 text-xs hover:text-white/70 transition-colors">✕</button>
-    </motion.div>
-  );
-}
-
 // --- Game Screen ---
-function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit, laserPickerState, onLaserPickerChange, onLaserDirected }: {
-  gameState: GameState; onStateChange: (state: GameState) => void; onWordSubmitted: (word: string, score: number, valid: boolean) => void; onQuit: () => void;
-  laserPickerState: { active: boolean; row: number; col: number } | null;
-  onLaserPickerChange: (s: { active: boolean; row: number; col: number } | null) => void;
-  onLaserDirected: (row: number, col: number, dir: 'row' | 'col') => void;
+function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
+  gameState: GameState;
+  onStateChange: (state: GameState) => void;
+  onWordSubmitted: (word: string, score: number, valid: boolean) => void;
+  onQuit: () => void;
 }) {
   const level = gameState.level;
   const isTimedLevel = level.goalType === 'scoreTimed';
-  const progressPercent = isTimedLevel ? (gameState.score / (level.targetScore || 1)) * 100 : (gameState.iceCleared / Math.max(gameState.totalIce, 1)) * 100;
-  const formatTime = (s: number) => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+
+  const progressPercent = isTimedLevel
+    ? (gameState.score / (level.targetScore || 1)) * 100
+    : (gameState.iceCleared / Math.max(gameState.totalIce, 1)) * 100;
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
 
   const activatePowerUp = (name: string) => {
-    soundEngine.playPowerUp();
-    if (name === 'shuffle') { useShuffle(gameState); onStateChange({ ...gameState }); toast.info('Board shuffled!'); return; }
+    if (name === 'shuffle') {
+      useShuffle(gameState);
+      onStateChange({ ...gameState });
+      toast.info('Board shuffled!');
+      return;
+    }
     if (name === 'hint') {
-      useHintPowerUp(gameState); onStateChange({ ...gameState });
-      if (gameState.hintPath.length > 0) toast.info(`Hint: "${gameState.hintPath.map(t => t.letter).join('')}"`, { duration: 3000 });
-      else toast.error('No valid words found!');
+      useHintPowerUp(gameState);
+      onStateChange({ ...gameState });
+      if (gameState.hintPath.length > 0) {
+        toast.info(`Hint: "${gameState.hintPath.map(t => t.letter).join('')}"`, { duration: 3000 });
+      } else {
+        toast.error('No valid words found!');
+      }
       return;
     }
-    if (name === 'laser') {
-      if (gameState.powerUps.laser <= 0) return;
-      const candidates: {row:number;col:number}[] = [];
-      for (let r=0; r<gameState.boardSize; r++)
-        for (let c=0; c<gameState.boardSize; c++)
-          if (gameState.board[r]?.[c] && !gameState.board[r][c]!.specialType) candidates.push({row:r,col:c});
-      if (candidates.length === 0) return;
-      const pos = candidates[Math.floor(Math.random() * candidates.length)];
-      onLaserPickerChange({ active: true, row: pos.row, col: pos.col });
-      return;
-    }
-    const fns: Record<string, (s: GameState) => void> = { bomb: useBombPowerUp, crossLaser: useCrossLaserPowerUp, mine: useMinePowerUp };
-    const fn = fns[name];
+    const placementFns: Record<string, (s: GameState) => void> = {
+      bomb: useBombPowerUp,
+      laser: useLaserPowerUp,
+      crossLaser: useCrossLaserPowerUp,
+      mine: useMinePowerUp,
+    };
+    const fn = placementFns[name];
     if (fn) {
-      fn(gameState); onStateChange({ ...gameState });
-      const labels: Record<string,string> = { bomb: '💣 Bomb placed!', crossLaser: '✦ Cross Laser placed!', mine: '💥 Mine placed!' };
+      fn(gameState);
+      onStateChange({ ...gameState });
+      const labels: Record<string, string> = {
+        bomb: '💣 Bomb placed on a random tile!',
+        laser: '⚡ Laser placed on a random tile!',
+        crossLaser: '✦ Cross Laser placed on a random tile!',
+        mine: '💥 Mine placed on a random tile!',
+      };
       toast.info(labels[name] || 'Power-up placed!');
     }
   };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-h-screen px-3 py-4 flex flex-col">
+      {/* Top HUD */}
       <div className="max-w-[560px] mx-auto w-full mb-3">
         <div className="flex items-center justify-between mb-2">
           <Button variant="ghost" size="sm" onClick={onQuit} className="text-white/50 hover:text-white text-xs px-2">✕ Quit</Button>
           <div className="text-center">
             <div className="text-xs text-white/40">Level {level.levelNumber}</div>
-            <div className="text-xs text-white/30">{isTimedLevel ? `Score ${level.targetScore}` : `Clear ${level.iceTilesToClearTarget} ice`}</div>
+            <div className="text-xs text-white/30">
+              {isTimedLevel ? `Score ${level.targetScore}` : `Clear ${level.iceTilesToClearTarget} ice`}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <CoinDisplay size="sm" />
             {isTimedLevel ? (
-              <div className={`font-mono text-sm font-bold ${gameState.timeRemaining<=10 && gameState.timerStarted ? 'text-red-400 animate-pulse' : 'text-white/70'}`}>
+              <div className={`font-mono text-sm font-bold ${gameState.timeRemaining <= 10 && gameState.timerStarted ? 'text-red-400 animate-pulse' : 'text-white/70'}`}>
                 {formatTime(gameState.timeRemaining)}
                 {!gameState.timerStarted && <span className="text-[9px] text-white/30 block">starts on play</span>}
               </div>
             ) : (
               <div className="font-mono text-sm text-white/70">
-                <span className={gameState.movesRemaining<=3 ? 'text-red-400 font-bold' : ''}>{gameState.movesRemaining}</span> moves
+                <span className={gameState.movesRemaining <= 3 ? 'text-red-400 font-bold' : ''}>{gameState.movesRemaining}</span> moves
               </div>
             )}
           </div>
         </div>
+
+        {/* Score bar */}
         <div className="relative mb-2">
           <Progress value={Math.min(100, progressPercent)} className="h-2 bg-white/5" />
           <div className="flex justify-between mt-1">
             <span className="text-xs font-mono text-emerald-400 font-bold">{gameState.score}</span>
             {gameState.coinsEarnedThisLevel > 0 && (
-              <motion.span key={gameState.coinsEarnedThisLevel} initial={{ scale: 1.4, color: '#fbbf24' }} animate={{ scale: 1, color: '#f59e0b' }} className="text-xs font-mono font-bold">🪙 +{gameState.coinsEarnedThisLevel}</motion.span>
+              <motion.span
+                key={gameState.coinsEarnedThisLevel}
+                initial={{ scale: 1.4, color: '#fbbf24' }}
+                animate={{ scale: 1, color: '#f59e0b' }}
+                className="text-xs font-mono font-bold"
+              >
+                🪙 +{gameState.coinsEarnedThisLevel}
+              </motion.span>
             )}
-            {gameState.streakMultiplier > 1 && <motion.span initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="text-xs text-amber-400 font-bold">🔥 ×{gameState.streakMultiplier.toFixed(1)}</motion.span>}
-            {!isTimedLevel && <span className="text-xs text-cyan-300">❄ {gameState.iceCleared}/{gameState.totalIce}</span>}
+            {gameState.streakMultiplier > 1 && (
+              <motion.span initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="text-xs text-amber-400 font-bold">
+                🔥 Streak ×{gameState.streakMultiplier.toFixed(1)}
+              </motion.span>
+            )}
+            {!isTimedLevel && (
+              <span className="text-xs text-cyan-300">❄ {gameState.iceCleared}/{gameState.totalIce}</span>
+            )}
           </div>
         </div>
       </div>
 
+      {/* Word popup */}
       <AnimatePresence>
         {gameState.showWordPopup && (
-          <motion.div initial={{ opacity:0, y:10, scale:0.9 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, y:-10 }} className="text-center mb-2">
+          <motion.div initial={{ opacity: 0, y: 10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10 }} className="text-center mb-2">
             <span className="text-emerald-400 font-bold text-lg">{gameState.lastWord}</span>
             <span className="text-amber-400 font-mono ml-2">+{gameState.lastWordScore}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Game Board */}
       <div className="flex-1 flex items-start justify-center">
         <GameBoard gameState={gameState} onStateChange={onStateChange} onWordSubmitted={onWordSubmitted} />
       </div>
 
-      <AnimatePresence>
-        {laserPickerState?.active && (
-          <div className="max-w-[560px] mx-auto w-full mt-1">
-            <LaserDirectionPicker
-              onChoose={(dir) => onLaserDirected(laserPickerState.row, laserPickerState.col, dir)}
-              onCancel={() => onLaserPickerChange(null)}
-            />
-          </div>
-        )}
-      </AnimatePresence>
-
+      {/* Power-ups bar */}
       <div className="max-w-[560px] mx-auto w-full mt-3">
         <div className="flex justify-center gap-2 flex-wrap">
           <PowerUpButton icon="💡" label="Hint" count={gameState.powerUps.hint} onClick={() => activatePowerUp('hint')} />
           <PowerUpButton icon="🔀" label="Shuffle" count={gameState.powerUps.shuffle} onClick={() => activatePowerUp('shuffle')} />
           <PowerUpButton icon="💣" label="Bomb" count={gameState.powerUps.bomb} onClick={() => activatePowerUp('bomb')} />
-          <PowerUpButton icon="⚡" label="Laser" count={gameState.powerUps.laser} onClick={() => activatePowerUp('laser')} active={!!laserPickerState?.active} />
+          <PowerUpButton icon="⚡" label="Laser" count={gameState.powerUps.laser} onClick={() => activatePowerUp('laser')} />
           <PowerUpButton icon="✦" label="Cross" count={gameState.powerUps.crossLaser} onClick={() => activatePowerUp('crossLaser')} />
           <PowerUpButton icon="💥" label="Mine" count={gameState.powerUps.mine} onClick={() => activatePowerUp('mine')} />
         </div>
+
+        {/* Words found */}
         {gameState.wordsFound.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5 justify-center max-h-16 overflow-y-auto">
             {gameState.wordsFound.slice(-12).map((w, i) => (
@@ -771,68 +685,156 @@ function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit, laserPi
   );
 }
 
-function PowerUpButton({ icon, label, count, onClick, active = false }: { icon: string; label: string; count: number; onClick: () => void; active?: boolean }) {
+// --- Power-up Button ---
+function PowerUpButton({ icon, label, count, onClick }: {
+  icon: string; label: string; count: number; onClick: () => void;
+}) {
   return (
-    <button onClick={onClick} disabled={count<=0}
-      className={`relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border transition-all ${active ? 'border-blue-400/60 bg-blue-400/20 scale-105' : count>0 ? 'border-white/10 bg-white/5 hover:bg-white/10 hover:scale-105' : 'border-white/5 bg-white/[0.02] opacity-30 cursor-not-allowed'}`}>
+    <button
+      onClick={onClick}
+      disabled={count <= 0}
+      className={`relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border transition-all ${
+        count > 0
+          ? 'border-white/10 bg-white/5 hover:bg-white/10 hover:scale-105'
+          : 'border-white/5 bg-white/[0.02] opacity-30 cursor-not-allowed'
+      }`}
+    >
       <span className="text-lg">{icon}</span>
       <span className="text-[9px] text-white/50">{label}</span>
-      <span className="absolute -top-1 -right-1 bg-white/10 text-white/70 text-[10px] font-mono w-4 h-4 rounded-full flex items-center justify-center">{count}</span>
+      <span className="absolute -top-1 -right-1 bg-white/10 text-white/70 text-[10px] font-mono w-4 h-4 rounded-full flex items-center justify-center">
+        {count}
+      </span>
     </button>
   );
 }
 
-// --- Continue Screen ---
+// --- Continue Screen (on level failure) ---
 function ContinueScreen({ gameState, session, onContinue, onRetry, onLevels, onStore }: {
-  gameState: GameState; session: ContinueSession; onContinue: (method: 'coins'|'ad') => void;
-  onRetry: () => void; onLevels: () => void; onStore: () => void;
+  gameState: GameState;
+  session: ContinueSession;
+  onContinue: (method: 'coins' | 'ad') => void;
+  onRetry: () => void;
+  onLevels: () => void;
+  onStore: () => void;
 }) {
   const isIceLevel = gameState.level.goalType === 'clearIceMoves';
   const failureMessage = isIceLevel ? 'Out of Moves!' : "Time's Up!";
   const cost = getContinueCost(session);
   const canAfford = cost !== null && canContinueWithCoins(session);
   const canAd = canContinueWithAd(session);
-  const continueBonus = isIceLevel ? `+${GameEconomyConfig.continueMoveBonus} moves` : `+${GameEconomyConfig.continueTimedBonus}s (1 min)`;
+  const continueBonus = isIceLevel
+    ? `+${GameEconomyConfig.continueMoveBonus} moves`
+    : `+${GameEconomyConfig.continueTimedBonus}s (1 min)`;
   const maxedOut = cost === null;
   const coinsAtRisk = gameState.coinsEarnedThisLevel;
+
   return (
-    <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }} className="min-h-screen flex items-center justify-center px-4">
-      <motion.div initial={{ scale:0.8, opacity:0 }} animate={{ scale:1, opacity:1 }} transition={{ type:'spring', stiffness:120 }}
-        className="w-full max-w-sm p-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl text-center">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-h-screen flex items-center justify-center px-4">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 120 }}
+        className="w-full max-w-sm p-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl text-center"
+      >
         <div className="text-4xl mb-3">😔</div>
         <h2 className="text-2xl font-bold text-white mb-2">{failureMessage}</h2>
         <div className="flex justify-center gap-4 mb-4">
-          <div className="text-center"><div className="text-white/40 text-[10px] uppercase tracking-wider">Score</div><div className="text-white font-mono font-bold">{gameState.score}</div></div>
-          <div className="text-center"><div className="text-white/40 text-[10px] uppercase tracking-wider">Words</div><div className="text-white font-mono font-bold">{gameState.wordsFound.length}</div></div>
-          <div className="text-center"><div className="text-amber-400/60 text-[10px] uppercase tracking-wider">Coins</div><div className="text-amber-400 font-mono font-bold">🪙 {coinsAtRisk}</div></div>
+          <div className="text-center">
+            <div className="text-white/40 text-[10px] uppercase tracking-wider">Score</div>
+            <div className="text-white font-mono font-bold">{gameState.score}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-white/40 text-[10px] uppercase tracking-wider">Words</div>
+            <div className="text-white font-mono font-bold">{gameState.wordsFound.length}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-amber-400/60 text-[10px] uppercase tracking-wider">Coins Earned</div>
+            <div className="text-amber-400 font-mono font-bold">🪙 {coinsAtRisk}</div>
+          </div>
         </div>
+
         {!maxedOut && (
           <div className="mb-4 space-y-2">
             <p className="text-white/50 text-xs mb-1">Continue? ({continueBonus}) — attempt {session.continueCount + 1}/{GameEconomyConfig.maxContinuesPerSession}</p>
+
+            {/* Watch Ad option */}
             {canAd && (
-              <motion.button whileHover={{ scale:1.02 }} whileTap={{ scale:0.98 }} onClick={() => onContinue('ad')}
-                className="w-full p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all flex items-center justify-between">
-                <div className="flex items-center gap-2"><span className="text-2xl">📺</span><div className="text-left"><div className="text-emerald-400 font-bold text-sm">Watch Ad</div><div className="text-emerald-400/50 text-[10px]">Free continue</div></div></div>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onContinue('ad')}
+                className="w-full p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">📺</span>
+                  <div className="text-left">
+                    <div className="text-emerald-400 font-bold text-sm">Watch Ad</div>
+                    <div className="text-emerald-400/50 text-[10px]">Free continue</div>
+                  </div>
+                </div>
                 <span className="text-emerald-400 font-bold text-sm">FREE</span>
               </motion.button>
             )}
-            <motion.button whileHover={canAfford?{scale:1.02}:{}} whileTap={canAfford?{scale:0.98}:{}} onClick={() => canAfford && onContinue('coins')} disabled={!canAfford}
-              className={`w-full p-3 rounded-xl border transition-all flex items-center justify-between ${canAfford ? 'border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 cursor-pointer' : 'border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed'}`}>
-              <div className="flex items-center gap-2"><span className="text-2xl">🪙</span><div className="text-left"><div className={`font-bold text-sm ${canAfford?'text-amber-400':'text-white/30'}`}>Continue with Coins</div>{!canAfford && <div className="text-white/20 text-[10px]">Not enough coins</div>}</div></div>
-              <span className={`font-bold font-mono text-sm ${canAfford?'text-amber-400':'text-white/30'}`}>{cost}</span>
+
+            {/* Continue with Coins option */}
+            <motion.button
+              whileHover={canAfford ? { scale: 1.02 } : {}}
+              whileTap={canAfford ? { scale: 0.98 } : {}}
+              onClick={() => canAfford && onContinue('coins')}
+              disabled={!canAfford}
+              className={`w-full p-3 rounded-xl border transition-all flex items-center justify-between ${
+                canAfford
+                  ? 'border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 cursor-pointer'
+                  : 'border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🪙</span>
+                <div className="text-left">
+                  <div className={`font-bold text-sm ${canAfford ? 'text-amber-400' : 'text-white/30'}`}>Continue with Coins</div>
+                  {!canAfford && <div className="text-white/20 text-[10px]">Not enough coins</div>}
+                </div>
+              </div>
+              <span className={`font-bold font-mono text-sm ${canAfford ? 'text-amber-400' : 'text-white/30'}`}>{cost}</span>
             </motion.button>
-            {!canAfford && cost !== null && <button onClick={onStore} className="text-amber-400/70 text-xs underline hover:text-amber-300 transition-colors">Visit store for more coins</button>}
+
+            {!canAfford && cost !== null && (
+              <button onClick={onStore} className="text-amber-400/70 text-xs underline hover:text-amber-300 transition-colors">
+                Visit store to get more coins
+              </button>
+            )}
           </div>
         )}
-        {maxedOut && <p className="text-white/40 text-sm mb-4">Maximum continues reached</p>}
+
+        {maxedOut && (
+          <p className="text-white/40 text-sm mb-4">Maximum continues reached</p>
+        )}
+
+        {/* Forfeit option */}
         <div className="mb-4 pt-3 border-t border-white/5">
-          <motion.button whileHover={{ scale:1.02 }} whileTap={{ scale:0.98 }} onClick={onLevels}
-            className="w-full p-3 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-all flex items-center justify-between">
-            <div className="flex items-center gap-2"><span className="text-2xl">🚪</span><div className="text-left"><div className="text-red-400 font-bold text-sm">Forfeit Level</div><div className="text-red-400/50 text-[10px]">Return to level select</div></div></div>
-            {coinsAtRisk>0 && <span className="text-red-400/80 font-mono text-xs font-bold">-{coinsAtRisk} 🪙</span>}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onLevels}
+            className="w-full p-3 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-all flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🚪</span>
+              <div className="text-left">
+                <div className="text-red-400 font-bold text-sm">Forfeit Level</div>
+                <div className="text-red-400/50 text-[10px]">Return to level select</div>
+              </div>
+            </div>
+            {coinsAtRisk > 0 && (
+              <span className="text-red-400/80 font-mono text-xs font-bold">-{coinsAtRisk} 🪙</span>
+            )}
           </motion.button>
         </div>
-        <Button onClick={onRetry} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl">🔄 Retry Level</Button>
+
+        {/* Retry button */}
+        <Button onClick={onRetry} className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl">
+          🔄 Retry Level
+        </Button>
       </motion.div>
     </motion.div>
   );
@@ -840,44 +842,99 @@ function ContinueScreen({ gameState, session, onContinue, onRetry, onLevels, onS
 
 // --- Result Screen ---
 function ResultScreen({ gameState, coinBreakdown, onReplay, onLevels, onNextLevel, hasNextLevel }: {
-  gameState: GameState; coinBreakdown: CoinBreakdown | null;
-  onReplay: () => void; onLevels: () => void; onNextLevel: () => void; hasNextLevel: boolean;
+  gameState: GameState;
+  coinBreakdown: CoinBreakdown | null;
+  onReplay: () => void;
+  onLevels: () => void;
+  onNextLevel: () => void;
+  hasNextLevel: boolean;
 }) {
   return (
-    <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }} className="min-h-screen flex items-center justify-center px-4">
-      <motion.div initial={{ scale:0.8, opacity:0 }} animate={{ scale:1, opacity:1 }} transition={{ type:'spring', stiffness:120 }}
-        className="w-full max-w-sm p-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl text-center">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-h-screen flex items-center justify-center px-4">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 120 }}
+        className="w-full max-w-sm p-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl text-center"
+      >
         <div className="text-4xl mb-4">🎉</div>
         <h2 className="text-2xl font-bold text-white mb-2">Level Complete!</h2>
+
+        {/* Stars */}
         <div className="flex justify-center gap-2 mb-4">
-          {[1,2,3].map(s => <motion.span key={s} initial={{ scale:0, rotate:-180 }} animate={{ scale:1, rotate:0 }} transition={{ delay: s*0.2, type:'spring' }} className={`text-3xl ${gameState.stars>=s ? 'text-amber-400' : 'text-white/15'}`}>★</motion.span>)}
+          {[1, 2, 3].map(s => (
+            <motion.span
+              key={s}
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: s * 0.2, type: 'spring' }}
+              className={`text-3xl ${gameState.stars >= s ? 'text-amber-400' : 'text-white/15'}`}
+            >★</motion.span>
+          ))}
         </div>
+
+        {/* Score summary */}
         <div className="space-y-1.5 mb-4">
-          <div className="flex justify-between text-sm"><span className="text-white/50">Score</span><span className="text-white font-mono font-bold">{gameState.score}</span></div>
-          <div className="flex justify-between text-sm"><span className="text-white/50">Words Found</span><span className="text-white font-mono">{gameState.wordsFound.length}</span></div>
-          {gameState.level.goalType === 'clearIceMoves' && <div className="flex justify-between text-sm"><span className="text-white/50">Ice Cleared</span><span className="text-white font-mono">{gameState.iceCleared}/{gameState.totalIce}</span></div>}
+          <div className="flex justify-between text-sm">
+            <span className="text-white/50">Score</span>
+            <span className="text-white font-mono font-bold">{gameState.score}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-white/50">Words Found</span>
+            <span className="text-white font-mono">{gameState.wordsFound.length}</span>
+          </div>
+          {gameState.level.goalType === 'clearIceMoves' && (
+            <div className="flex justify-between text-sm">
+              <span className="text-white/50">Ice Cleared</span>
+              <span className="text-white font-mono">{gameState.iceCleared}/{gameState.totalIce}</span>
+            </div>
+          )}
         </div>
+
+        {/* Coin Breakdown */}
         {coinBreakdown && (
           <div className="mb-4 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
             <h3 className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-wider">Coins Earned</h3>
             <div className="space-y-1">
               {coinBreakdown.transactions.map((txn, i) => (
-                <motion.div key={i} initial={{ opacity:0, x:-10 }} animate={{ opacity:1, x:0 }} transition={{ delay: 0.8+i*0.15 }} className="flex justify-between text-xs">
-                  <span className="text-white/50">{txn.label}</span><span className="text-amber-400 font-mono">+{txn.amount}</span>
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.8 + i * 0.15 }}
+                  className="flex justify-between text-xs"
+                >
+                  <span className="text-white/50">{txn.label}</span>
+                  <span className="text-amber-400 font-mono">+{txn.amount}</span>
                 </motion.div>
               ))}
               <div className="border-t border-amber-500/20 pt-1 mt-1">
-                <motion.div initial={{ opacity:0, scale:0.9 }} animate={{ opacity:1, scale:1 }} transition={{ delay: 0.8+coinBreakdown.transactions.length*0.15 }} className="flex justify-between text-sm font-bold">
-                  <span className="text-amber-300">Total</span><span className="text-amber-300">🪙 +{coinBreakdown.total}</span>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.8 + coinBreakdown.transactions.length * 0.15 }}
+                  className="flex justify-between text-sm font-bold"
+                >
+                  <span className="text-amber-300">Total</span>
+                  <span className="text-amber-300">🪙 +{coinBreakdown.total}</span>
                 </motion.div>
               </div>
             </div>
           </div>
         )}
+
         <div className="flex gap-3">
-          <Button onClick={onLevels} variant="outline" className="flex-1 border-white/10 text-white/70 hover:text-white hover:bg-white/10">Levels</Button>
-          <Button onClick={onReplay} variant="outline" className="flex-1 border-white/10 text-white/70 hover:text-white hover:bg-white/10">Replay</Button>
-          {hasNextLevel && <Button onClick={onNextLevel} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold">Next →</Button>}
+          <Button onClick={onLevels} variant="outline" className="flex-1 border-white/10 text-white/70 hover:text-white hover:bg-white/10">
+            Levels
+          </Button>
+          <Button onClick={onReplay} variant="outline" className="flex-1 border-white/10 text-white/70 hover:text-white hover:bg-white/10">
+            Replay
+          </Button>
+          {hasNextLevel && (
+            <Button onClick={onNextLevel} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-white font-bold">
+              Next →
+            </Button>
+          )}
         </div>
       </motion.div>
     </motion.div>

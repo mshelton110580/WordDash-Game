@@ -211,26 +211,45 @@ class GameScene: SKScene {
             container.addChild(mine)
         }
 
-        // Letter — dark text on light wood tiles, white on special dark tiles
+        // Letter — positioned based on tile type
         let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
         label.name = "letterLabel"
-        if tile.specialType == .wildcard {
-            label.text = "★"
-            label.fontSize = tileSize * 0.5
-            label.fontColor = .white
+        if tile.specialType != nil {
+            // SPECIAL TILES: Letter in upper-left blank wood area
+            // The new tile images have a diagonal split with blank wood in the upper-left
+            label.text = String(tile.letter)
+            label.fontSize = tileSize * 0.32
+            // Dark brown text on the light wood area (upper-left)
+            label.fontColor = SKColor(red: 0.18, green: 0.11, blue: 0.05, alpha: 1.0)
+            // Position in upper-left quadrant (SpriteKit: y is up, origin is center)
+            label.position = CGPoint(x: -tileSize * 0.28, y: tileSize * 0.26)
+            label.verticalAlignmentMode = .center
+            label.horizontalAlignmentMode = .center
+            label.zPosition = 5
+            container.addChild(label)
+
+            // Point value — small, below the letter in the wood area
+            let pointLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+            let pts = GameConstants.letterValues[tile.letter] ?? 0
+            pointLabel.text = "\(pts)"
+            pointLabel.fontSize = tileSize * 0.14
+            pointLabel.fontColor = SKColor(red: 0.18, green: 0.11, blue: 0.05, alpha: 0.55)
+            pointLabel.position = CGPoint(x: -tileSize * 0.28, y: tileSize * 0.12)
+            pointLabel.verticalAlignmentMode = .center
+            pointLabel.horizontalAlignmentMode = .center
+            pointLabel.zPosition = 5
+            container.addChild(pointLabel)
         } else {
+            // NORMAL TILES: Letter centered
             label.text = String(tile.letter)
             label.fontSize = tileSize * 0.45
-            // Dark brown text on normal wood tiles for contrast
-            label.fontColor = tile.specialType == nil ? SKColor(red: 0.25, green: 0.18, blue: 0.12, alpha: 1.0) : .white
-        }
-        label.verticalAlignmentMode = .center
-        label.horizontalAlignmentMode = .center
-        label.zPosition = 5
-        container.addChild(label)
+            label.fontColor = SKColor(red: 0.25, green: 0.18, blue: 0.12, alpha: 1.0)
+            label.verticalAlignmentMode = .center
+            label.horizontalAlignmentMode = .center
+            label.zPosition = 5
+            container.addChild(label)
 
-        // Point value (small) — bottom right
-        if tile.specialType == nil {
+            // Point value (small) — bottom right for normal tiles
             let pointLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
             let pts = GameConstants.letterValues[tile.letter] ?? 0
             pointLabel.text = "\(pts)"
@@ -243,26 +262,14 @@ class GameScene: SKScene {
             container.addChild(pointLabel)
         }
 
-        // Special type label — bottom center
-        if let special = tile.specialType {
-            let specialLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-            let labels: [SpecialTileType: String] = [
-                .bomb: "BOMB", .laser: "LASER", .crossLaser: "CROSS", .wildcard: "WILD", .mine: "MINE"
-            ]
-            specialLabel.text = labels[special] ?? ""
-            specialLabel.fontSize = tileSize * 0.14
-            specialLabel.fontColor = .white
-            specialLabel.position = CGPoint(x: 0, y: -tileSize * 0.35)
-            specialLabel.verticalAlignmentMode = .center
-            specialLabel.horizontalAlignmentMode = .center
-            specialLabel.zPosition = 6
-            container.addChild(specialLabel)
-        }
-
-        // Letter multiplier badge (2x / 3x) — top right
+        // Letter multiplier badge (2x / 3x)
+        // For special tiles: bottom-left (to avoid upper-left letter area)
+        // For normal tiles: top-right
         if tile.letterMultiplier > 1 {
             let badgeSize = CGSize(width: tileSize * 0.38, height: tileSize * 0.22)
-            let badgePos = CGPoint(x: tileSize * 0.2, y: tileSize * 0.3)
+            let badgePos = tile.specialType != nil
+                ? CGPoint(x: -tileSize * 0.2, y: -tileSize * 0.3)
+                : CGPoint(x: tileSize * 0.2, y: tileSize * 0.3)
 
             let badge = SKShapeNode(rectOf: badgeSize, cornerRadius: 4)
             badge.position = badgePos
