@@ -165,57 +165,33 @@ class GameScene: SKScene {
         container.position = positionForTile(row: tile.row, col: tile.col)
         container.name = "tile_\(tile.id.uuidString)"
 
-        // Background
-        let bg = SKShapeNode(rectOf: CGSize(width: tileSize - 2, height: tileSize - 2), cornerRadius: 6)
-        bg.name = "tileBG"
-
+        // Background — use image assets
+        let imageName: String
         if let special = tile.specialType {
             switch special {
-            case .bomb:
-                bg.fillColor = SKColor(red: 1.0, green: 0.3, blue: 0.2, alpha: 1.0)
-            case .laser:
-                bg.fillColor = SKColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 1.0)
-            case .crossLaser:
-                bg.fillColor = SKColor(red: 0.8, green: 0.2, blue: 1.0, alpha: 1.0)
-            case .mine:
-                bg.fillColor = SKColor(red: 0.6, green: 0.6, blue: 0.2, alpha: 1.0)
-            case .wildcard:
-                bg.fillColor = SKColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 1.0)
+            case .bomb: imageName = "tile_special_bomb"
+            case .laser: imageName = "tile_special_laser"
+            case .crossLaser: imageName = "tile_special_cross"
+            case .mine: imageName = "tile_special_mine"
+            case .wildcard: imageName = "tile_special_wildcard"
             }
-            // Glow effect for special tiles
-            bg.glowWidth = 4
         } else {
-            bg.fillColor = SKColor(red: 0.25, green: 0.3, blue: 0.5, alpha: 1.0)
+            imageName = "tile_normal"
         }
-        bg.strokeColor = SKColor(white: 0.4, alpha: 0.5)
-        bg.lineWidth = 1
+
+        let bg = SKSpriteNode(imageNamed: imageName)
+        bg.size = CGSize(width: tileSize - 2, height: tileSize - 2)
+        bg.name = "tileBG"
         bg.zPosition = 0
         container.addChild(bg)
 
-        // Ice overlay
+        // Ice overlay — use ice tile images
         if tile.isIced {
-            let ice = SKShapeNode(rectOf: CGSize(width: tileSize - 2, height: tileSize - 2), cornerRadius: 6)
+            let iceImageName = tile.iceState == .intact ? "tile_ice_1" : "tile_ice_2"
+            let ice = SKSpriteNode(imageNamed: iceImageName)
+            ice.size = CGSize(width: tileSize - 2, height: tileSize - 2)
             ice.name = "iceOverlay"
-            if tile.iceState == .intact {
-                ice.fillColor = SKColor(red: 0.7, green: 0.9, blue: 1.0, alpha: 0.6)
-            } else {
-                ice.fillColor = SKColor(red: 0.7, green: 0.9, blue: 1.0, alpha: 0.3)
-                // Add crack lines
-                let crack = SKShapeNode()
-                let path = CGMutablePath()
-                path.move(to: CGPoint(x: -8, y: 8))
-                path.addLine(to: CGPoint(x: 3, y: -2))
-                path.addLine(to: CGPoint(x: -3, y: -8))
-                path.move(to: CGPoint(x: 3, y: -2))
-                path.addLine(to: CGPoint(x: 10, y: -6))
-                crack.path = path
-                crack.strokeColor = SKColor(white: 1.0, alpha: 0.8)
-                crack.lineWidth = 1.5
-                crack.zPosition = 2
-                container.addChild(crack)
-            }
-            ice.strokeColor = SKColor(red: 0.5, green: 0.8, blue: 1.0, alpha: 0.8)
-            ice.lineWidth = 2
+            ice.alpha = tile.iceState == .intact ? 0.8 : 0.5
             ice.zPosition = 1
             container.addChild(ice)
         }
@@ -231,17 +207,19 @@ class GameScene: SKScene {
             container.addChild(mine)
         }
 
-        // Letter
+        // Letter — dark text on light wood tiles, white on special dark tiles
         let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
         label.name = "letterLabel"
         if tile.specialType == .wildcard {
             label.text = "★"
             label.fontSize = tileSize * 0.5
+            label.fontColor = .white
         } else {
             label.text = String(tile.letter)
             label.fontSize = tileSize * 0.45
+            // Dark brown text on normal wood tiles for contrast
+            label.fontColor = tile.specialType == nil ? SKColor(red: 0.25, green: 0.18, blue: 0.12, alpha: 1.0) : .white
         }
-        label.fontColor = .white
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
         label.zPosition = 5
@@ -253,7 +231,7 @@ class GameScene: SKScene {
             let pts = GameConstants.letterValues[tile.letter] ?? 0
             pointLabel.text = "\(pts)"
             pointLabel.fontSize = tileSize * 0.2
-            pointLabel.fontColor = SKColor(white: 0.8, alpha: 0.7)
+            pointLabel.fontColor = SKColor(red: 0.45, green: 0.35, blue: 0.25, alpha: 0.7)
             pointLabel.position = CGPoint(x: tileSize * 0.3, y: -tileSize * 0.3)
             pointLabel.verticalAlignmentMode = .center
             pointLabel.horizontalAlignmentMode = .center
@@ -490,17 +468,36 @@ class GameScene: SKScene {
             return
         }
 
-        // Highlight selected tiles
-        for (_, sprite) in tileSprites {
-            if let bg = sprite.childNode(withName: "tileBG") as? SKShapeNode {
-                bg.glowWidth = 0
+        // Reset all tiles to normal appearance
+        for (tileId, sprite) in tileSprites {
+            // Remove any existing selection overlay
+            sprite.childNode(withName: "selectionOverlay")?.removeFromParent()
+            // Reset tile background to normal image
+            if let bg = sprite.childNode(withName: "tileBG") as? SKSpriteNode {
+                // Find the original tile to determine correct image
+                if let tile = boardModel.allTilesOnBoard().first(where: { $0.id == tileId }) {
+                    let imageName: String
+                    if let special = tile.specialType {
+                        switch special {
+                        case .bomb: imageName = "tile_special_bomb"
+                        case .laser: imageName = "tile_special_laser"
+                        case .crossLaser: imageName = "tile_special_cross"
+                        case .mine: imageName = "tile_special_mine"
+                        case .wildcard: imageName = "tile_special_wildcard"
+                        }
+                    } else {
+                        imageName = "tile_normal"
+                    }
+                    bg.texture = SKTexture(imageNamed: imageName)
+                }
             }
         }
 
+        // Highlight selected tiles with selected image
         for tile in selectedPath {
             if let sprite = tileSprites[tile.id],
-               let bg = sprite.childNode(withName: "tileBG") as? SKShapeNode {
-                bg.glowWidth = 4
+               let bg = sprite.childNode(withName: "tileBG") as? SKSpriteNode {
+                bg.texture = SKTexture(imageNamed: "tile_selected")
             }
         }
 
@@ -663,6 +660,16 @@ class GameScene: SKScene {
             gameState.maxCascadeReached = max(gameState.maxCascadeReached, gameState.cascadeStep)
             let bonus = ScoringEngine.shared.boardExplosionBonus(step: gameState.cascadeStep)
             gameState.score += bonus
+        }
+
+        // Screen shake + shockwave for impressive clears
+        if selectedPath.count >= 5 {
+            // Big word — shockwave at midpoint + screen shake
+            let midIdx = selectedPath.count / 2
+            let midTile = selectedPath[midIdx]
+            let midPos = positionForTile(row: midTile.row, col: midTile.col)
+            spawnShockwaveRing(at: midPos, color: effectColor(for: nil))
+            shakeScreen(intensity: 3, duration: 0.12)
         }
 
         // Animate explosions
@@ -845,30 +852,51 @@ class GameScene: SKScene {
 
     // MARK: - Animations
 
+    // MARK: - Premium Effects: Layered Explosions
+
     func animateExplosions(tiles: [TileModel], completion: @escaping () -> Void) {
         let group = DispatchGroup()
 
-        for tile in tiles {
+        for (index, tile) in tiles.enumerated() {
             guard let sprite = tileSprites[tile.id] else { continue }
             group.enter()
 
-            // Particle explosion
-            let particles = createExplosionParticles(at: sprite.position)
-            boardNode.addChild(particles)
+            // Stagger each tile by index * 0.015s for ripple effect
+            let staggerDelay = Double(index) * 0.015
 
-            let fadeOut = SKAction.sequence([
+            // Determine theme color based on special type
+            let themeColor = effectColor(for: tile.specialType)
+
+            sprite.run(SKAction.sequence([
+                SKAction.wait(forDuration: staggerDelay),
+                SKAction.run { [weak self] in
+                    guard let self = self else { return }
+                    // White/yellow flash overlay
+                    self.spawnFlash(at: sprite.position, color: themeColor)
+                    // Multi-emitter particles
+                    self.spawnLayeredParticles(at: sprite.position, specialType: tile.specialType)
+                    // Shockwave ring for special tiles
+                    if tile.specialType != nil {
+                        self.spawnShockwaveRing(at: sprite.position, color: themeColor)
+                    }
+                },
+                // Phase 1: Squash (compress vertically)
                 SKAction.group([
-                    SKAction.scale(to: 1.3, duration: 0.1),
-                    SKAction.fadeAlpha(to: 0.8, duration: 0.1)
+                    SKAction.scaleX(to: 1.15, duration: 0.06),
+                    SKAction.scaleY(to: 0.85, duration: 0.06)
                 ]),
+                // Phase 2: Pop (scale up with flash)
                 SKAction.group([
-                    SKAction.scale(to: 0, duration: 0.2),
-                    SKAction.fadeOut(withDuration: 0.2)
+                    SKAction.scale(to: 1.3, duration: 0.08),
+                    SKAction.fadeAlpha(to: 0.7, duration: 0.08)
+                ]),
+                // Phase 3: Shrink + fade out
+                SKAction.group([
+                    SKAction.scale(to: 0.0, duration: 0.12),
+                    SKAction.fadeOut(withDuration: 0.12)
                 ]),
                 SKAction.removeFromParent()
-            ])
-
-            sprite.run(fadeOut) {
+            ])) {
                 group.leave()
             }
 
@@ -880,102 +908,319 @@ class GameScene: SKScene {
         }
     }
 
-    func createExplosionParticles(at position: CGPoint) -> SKNode {
+    /// Get theme color for a special tile type
+    func effectColor(for specialType: SpecialTileType?) -> SKColor {
+        guard let special = specialType else {
+            // Warm wood dust for normal tiles
+            return SKColor(red: 0.83, green: 0.65, blue: 0.45, alpha: 1.0)
+        }
+        switch special {
+        case .bomb: return SKColor(red: 1.0, green: 0.42, blue: 0.21, alpha: 1.0)    // warm orange
+        case .laser: return SKColor(red: 0.3, green: 0.65, blue: 1.0, alpha: 1.0)     // cool blue
+        case .crossLaser: return SKColor(red: 0.7, green: 0.4, blue: 1.0, alpha: 1.0) // purple
+        case .mine: return SKColor(red: 1.0, green: 0.27, blue: 0.27, alpha: 1.0)     // red
+        case .wildcard: return SKColor(red: 1.0, green: 0.84, blue: 0.0, alpha: 1.0)  // gold
+        }
+    }
+
+    /// White/yellow additive flash at tile position
+    func spawnFlash(at position: CGPoint, color: SKColor) {
+        let flash = SKShapeNode(circleOfRadius: tileSize * 0.6)
+        flash.position = position
+        flash.fillColor = .white
+        flash.strokeColor = .clear
+        flash.alpha = 0.9
+        flash.zPosition = 55
+        flash.blendMode = .add
+        boardNode.addChild(flash)
+
+        flash.run(SKAction.sequence([
+            SKAction.group([
+                SKAction.scale(to: 1.5, duration: 0.1),
+                SKAction.fadeOut(withDuration: 0.15)
+            ]),
+            SKAction.removeFromParent()
+        ]))
+    }
+
+    /// Multi-emitter particle system: wood chips + dust puffs + sparkles
+    func spawnLayeredParticles(at position: CGPoint, specialType: SpecialTileType?) {
         let container = SKNode()
         container.position = position
         container.zPosition = 50
+        boardNode.addChild(container)
 
-        let colors: [SKColor] = [.yellow, .orange, .red, .white]
+        let themeColor = effectColor(for: specialType)
+        let isBig = specialType != nil
 
-        for _ in 0..<8 {
-            let particle = SKShapeNode(circleOfRadius: CGFloat.random(in: 2...5))
-            particle.fillColor = colors.randomElement()!
-            particle.strokeColor = .clear
+        // --- Emitter 1: Wood chips (small rectangles, gravity downward) ---
+        let chipCount = isBig ? 10 : 6
+        for _ in 0..<chipCount {
+            let w = CGFloat.random(in: 3...7)
+            let h = CGFloat.random(in: 2...4)
+            let chip = SKShapeNode(rectOf: CGSize(width: w, height: h))
+            chip.fillColor = themeColor.withAlphaComponent(CGFloat.random(in: 0.7...1.0))
+            chip.strokeColor = .clear
+            chip.zRotation = CGFloat.random(in: 0...(2 * .pi))
 
             let angle = CGFloat.random(in: 0...(2 * .pi))
-            let distance = CGFloat.random(in: 20...50)
-            let dx = cos(angle) * distance
-            let dy = sin(angle) * distance
+            let speed = CGFloat.random(in: 40...100)
+            let dx = cos(angle) * speed
+            let dy = sin(angle) * speed
+            let duration = Double.random(in: 0.25...0.45)
 
-            let move = SKAction.moveBy(x: dx, y: dy, duration: 0.3)
-            move.timingMode = .easeOut
-            let fade = SKAction.fadeOut(withDuration: 0.3)
-            let remove = SKAction.removeFromParent()
+            // Move outward + gravity pulls down
+            let moveOut = SKAction.moveBy(x: dx, y: dy, duration: duration * 0.4)
+            moveOut.timingMode = .easeOut
+            let gravity = SKAction.moveBy(x: 0, y: -30, duration: duration * 0.6)
+            gravity.timingMode = .easeIn
+            let rotate = SKAction.rotate(byAngle: CGFloat.random(in: -3...3), duration: duration)
+            let fade = SKAction.fadeOut(withDuration: duration)
 
-            particle.run(SKAction.sequence([SKAction.group([move, fade]), remove]))
-            container.addChild(particle)
+            chip.run(SKAction.group([
+                SKAction.sequence([moveOut, gravity]),
+                rotate,
+                fade,
+                SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])
+            ]))
+            container.addChild(chip)
         }
 
-        let removeContainer = SKAction.sequence([
-            SKAction.wait(forDuration: 0.5),
-            SKAction.removeFromParent()
-        ])
-        container.run(removeContainer)
+        // --- Emitter 2: Dust puffs (soft circles, quick fade, low alpha) ---
+        let dustCount = isBig ? 5 : 3
+        for _ in 0..<dustCount {
+            let radius = CGFloat.random(in: 6...14)
+            let dust = SKShapeNode(circleOfRadius: radius)
+            dust.fillColor = themeColor.withAlphaComponent(0.3)
+            dust.strokeColor = .clear
+            dust.alpha = 0.5
 
-        return container
+            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let distance = CGFloat.random(in: 10...30)
+            let duration = Double.random(in: 0.2...0.35)
+
+            let move = SKAction.moveBy(x: cos(angle) * distance, y: sin(angle) * distance, duration: duration)
+            move.timingMode = .easeOut
+            let grow = SKAction.scale(to: 2.0, duration: duration)
+            let fade = SKAction.fadeOut(withDuration: duration)
+
+            dust.run(SKAction.group([
+                move, grow, fade,
+                SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])
+            ]))
+            container.addChild(dust)
+        }
+
+        // --- Emitter 3: Sparkles (additive, upward drift) ---
+        let sparkleCount = isBig ? 5 : 3
+        for _ in 0..<sparkleCount {
+            let sparkle = SKShapeNode(circleOfRadius: CGFloat.random(in: 1.5...4))
+            sparkle.fillColor = .white
+            sparkle.strokeColor = .clear
+            sparkle.blendMode = .add
+            sparkle.alpha = 0.9
+
+            let dx = CGFloat.random(in: -20...20)
+            let dy = CGFloat.random(in: 15...45)  // upward drift
+            let duration = Double.random(in: 0.3...0.5)
+
+            let move = SKAction.moveBy(x: dx, y: dy, duration: duration)
+            move.timingMode = .easeOut
+            let fade = SKAction.fadeOut(withDuration: duration)
+            let shrink = SKAction.scale(to: 0.2, duration: duration)
+
+            sparkle.run(SKAction.group([
+                move, fade, shrink,
+                SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])
+            ]))
+            container.addChild(sparkle)
+        }
+
+        // Clean up container
+        container.run(SKAction.sequence([
+            SKAction.wait(forDuration: 0.6),
+            SKAction.removeFromParent()
+        ]))
+    }
+
+    /// Expanding shockwave ring effect
+    func spawnShockwaveRing(at position: CGPoint, color: SKColor) {
+        let ring = SKShapeNode(circleOfRadius: tileSize * 0.3)
+        ring.position = position
+        ring.fillColor = .clear
+        ring.strokeColor = color
+        ring.lineWidth = 8
+        ring.alpha = 0.8
+        ring.zPosition = 55
+        ring.blendMode = .add
+        ring.setScale(0.2)
+        boardNode.addChild(ring)
+
+        ring.run(SKAction.sequence([
+            SKAction.group([
+                SKAction.scale(to: 1.6, duration: 0.22),
+                SKAction.fadeOut(withDuration: 0.25),
+                SKAction.customAction(withDuration: 0.22) { node, elapsed in
+                    // Thin out the line as it expands
+                    if let shape = node as? SKShapeNode {
+                        let progress = elapsed / 0.22
+                        shape.lineWidth = max(1, 8 * (1 - progress))
+                    }
+                }
+            ]),
+            SKAction.removeFromParent()
+        ]))
+    }
+
+    /// Screen shake for special clears
+    func shakeScreen(intensity: CGFloat = 4, duration: TimeInterval = 0.15) {
+        guard let boardNode = boardNode else { return }
+        let originalPos = boardNode.position
+        var actions: [SKAction] = []
+        let shakeCount = Int(duration / 0.03)
+        for _ in 0..<shakeCount {
+            let dx = CGFloat.random(in: -intensity...intensity)
+            let dy = CGFloat.random(in: -intensity...intensity)
+            actions.append(SKAction.moveBy(x: dx, y: dy, duration: 0.03))
+        }
+        actions.append(SKAction.move(to: originalPos, duration: 0.03))
+        boardNode.run(SKAction.sequence(actions))
     }
 
     func animateLaserEffect(at tile: TileModel, isRow: Bool) {
         let pos = positionForTile(row: tile.row, col: tile.col)
 
+        // Inner bright line
         let line = SKShapeNode()
         let path = CGMutablePath()
 
         if isRow {
-            path.move(to: CGPoint(x: 0, y: pos.y))
-            path.addLine(to: CGPoint(x: tileSize * CGFloat(boardModel.cols), y: pos.y))
+            path.move(to: CGPoint(x: -tileSize, y: pos.y))
+            path.addLine(to: CGPoint(x: tileSize * CGFloat(boardModel.cols) + tileSize, y: pos.y))
         } else {
-            path.move(to: CGPoint(x: pos.x, y: 0))
-            path.addLine(to: CGPoint(x: pos.x, y: tileSize * CGFloat(boardModel.rows)))
+            path.move(to: CGPoint(x: pos.x, y: -tileSize))
+            path.addLine(to: CGPoint(x: pos.x, y: tileSize * CGFloat(boardModel.rows) + tileSize))
         }
 
         line.path = path
-        line.strokeColor = SKColor(red: 0.3, green: 0.8, blue: 1.0, alpha: 1.0)
-        line.lineWidth = 6
-        line.glowWidth = 8
+        line.strokeColor = SKColor(red: 0.5, green: 0.9, blue: 1.0, alpha: 1.0)
+        line.lineWidth = 4
+        line.glowWidth = 12
         line.zPosition = 60
+        line.blendMode = .add
         boardNode.addChild(line)
 
+        // Outer glow line
+        let outerLine = SKShapeNode(path: path)
+        outerLine.strokeColor = SKColor(red: 0.2, green: 0.5, blue: 1.0, alpha: 0.5)
+        outerLine.lineWidth = 14
+        outerLine.zPosition = 59
+        outerLine.blendMode = .add
+        boardNode.addChild(outerLine)
+
+        // Sparkles along the laser path
+        let sparkleCount = boardModel.cols
+        for i in 0..<sparkleCount {
+            let sparkle = SKShapeNode(circleOfRadius: CGFloat.random(in: 2...4))
+            sparkle.fillColor = .white
+            sparkle.strokeColor = .clear
+            sparkle.blendMode = .add
+            if isRow {
+                sparkle.position = CGPoint(x: tileSize * CGFloat(i) + tileSize * 0.5, y: pos.y)
+            } else {
+                sparkle.position = CGPoint(x: pos.x, y: tileSize * CGFloat(i) + tileSize * 0.5)
+            }
+            sparkle.zPosition = 61
+            boardNode.addChild(sparkle)
+
+            let drift = SKAction.moveBy(
+                x: isRow ? 0 : CGFloat.random(in: -15...15),
+                y: isRow ? CGFloat.random(in: -15...15) : 0,
+                duration: 0.3
+            )
+            sparkle.run(SKAction.sequence([
+                SKAction.wait(forDuration: Double(i) * 0.02),
+                SKAction.group([drift, SKAction.fadeOut(withDuration: 0.3)]),
+                SKAction.removeFromParent()
+            ]))
+        }
+
         let fade = SKAction.sequence([
-            SKAction.wait(forDuration: 0.2),
-            SKAction.fadeOut(withDuration: 0.3),
+            SKAction.wait(forDuration: 0.15),
+            SKAction.fadeOut(withDuration: 0.2),
             SKAction.removeFromParent()
         ])
         line.run(fade)
+        outerLine.run(fade.copy() as! SKAction)
+
+        // Screen shake for laser
+        shakeScreen(intensity: 4, duration: 0.15)
     }
 
     func animateBombEffect(at tile: TileModel) {
         let pos = positionForTile(row: tile.row, col: tile.col)
 
-        let circle = SKShapeNode(circleOfRadius: tileSize * 1.5)
-        circle.position = pos
-        circle.fillColor = SKColor(red: 1.0, green: 0.5, blue: 0.0, alpha: 0.5)
-        circle.strokeColor = SKColor(red: 1.0, green: 0.8, blue: 0.0, alpha: 0.8)
-        circle.lineWidth = 3
-        circle.zPosition = 60
-        circle.setScale(0.1)
-        boardNode.addChild(circle)
+        // Central flash
+        let flash = SKShapeNode(circleOfRadius: tileSize * 1.2)
+        flash.position = pos
+        flash.fillColor = SKColor(red: 1.0, green: 0.7, blue: 0.2, alpha: 0.9)
+        flash.strokeColor = .clear
+        flash.zPosition = 62
+        flash.blendMode = .add
+        flash.setScale(0.1)
+        boardNode.addChild(flash)
 
-        let expand = SKAction.sequence([
-            SKAction.scale(to: 1.0, duration: 0.2),
-            SKAction.fadeOut(withDuration: 0.2),
+        flash.run(SKAction.sequence([
+            SKAction.group([
+                SKAction.scale(to: 1.2, duration: 0.12),
+                SKAction.fadeOut(withDuration: 0.18)
+            ]),
             SKAction.removeFromParent()
-        ])
-        circle.run(expand)
+        ]))
+
+        // Expanding shockwave ring
+        spawnShockwaveRing(at: pos, color: SKColor(red: 1.0, green: 0.42, blue: 0.21, alpha: 1.0))
+
+        // Second larger ring with delay
+        let ring2 = SKShapeNode(circleOfRadius: tileSize * 0.4)
+        ring2.position = pos
+        ring2.fillColor = .clear
+        ring2.strokeColor = SKColor(red: 1.0, green: 0.6, blue: 0.2, alpha: 0.6)
+        ring2.lineWidth = 6
+        ring2.zPosition = 55
+        ring2.blendMode = .add
+        ring2.setScale(0.3)
+        boardNode.addChild(ring2)
+
+        ring2.run(SKAction.sequence([
+            SKAction.wait(forDuration: 0.06),
+            SKAction.group([
+                SKAction.scale(to: 2.0, duration: 0.28),
+                SKAction.fadeOut(withDuration: 0.3)
+            ]),
+            SKAction.removeFromParent()
+        ]))
+
+        // Debris particles
+        spawnLayeredParticles(at: pos, specialType: .bomb)
+
+        // Screen shake for bomb
+        shakeScreen(intensity: 6, duration: 0.18)
     }
 
     /// Board-wide explosion visual for dual-bomb
     func animateBoardExplosion() {
         // Screen flash
         let flash = SKShapeNode(rectOf: size)
-        flash.fillColor = SKColor(red: 1.0, green: 0.9, blue: 0.5, alpha: 0.8)
+        flash.fillColor = SKColor(red: 1.0, green: 0.9, blue: 0.5, alpha: 0.9)
         flash.strokeColor = .clear
         flash.position = CGPoint(x: size.width / 2, y: size.height / 2)
         flash.zPosition = 500
+        flash.blendMode = .add
         addChild(flash)
 
         let flashAction = SKAction.sequence([
-            SKAction.fadeOut(withDuration: 0.4),
+            SKAction.fadeOut(withDuration: 0.35),
             SKAction.removeFromParent()
         ])
         flash.run(flashAction)
@@ -985,25 +1230,49 @@ class GameScene: SKScene {
             x: tileSize * CGFloat(boardModel.cols) / 2,
             y: tileSize * CGFloat(boardModel.rows) / 2
         )
-        for _ in 0..<20 {
-            let particle = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...8))
-            particle.fillColor = [SKColor.yellow, .orange, .red, .white].randomElement()!
+
+        // Multiple shockwave rings from center
+        for delay in stride(from: 0.0, to: 0.15, by: 0.05) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self = self else { return }
+                self.spawnShockwaveRing(at: centerPos, color: SKColor(red: 1.0, green: 0.7, blue: 0.2, alpha: 1.0))
+            }
+        }
+
+        // Massive debris from center
+        for _ in 0..<30 {
+            let w = CGFloat.random(in: 4...10)
+            let h = CGFloat.random(in: 3...6)
+            let particle = SKShapeNode(rectOf: CGSize(width: w, height: h))
+            particle.fillColor = [SKColor.yellow, .orange, .red, .white, SKColor(red: 0.83, green: 0.65, blue: 0.45, alpha: 1.0)].randomElement()!
             particle.strokeColor = .clear
             particle.position = centerPos
             particle.zPosition = 70
+            particle.zRotation = CGFloat.random(in: 0...(2 * .pi))
             boardNode.addChild(particle)
 
             let angle = CGFloat.random(in: 0...(2 * .pi))
-            let distance = CGFloat.random(in: 80...200)
+            let distance = CGFloat.random(in: 100...250)
             let dx = cos(angle) * distance
             let dy = sin(angle) * distance
+            let duration = Double.random(in: 0.4...0.7)
 
-            let move = SKAction.moveBy(x: dx, y: dy, duration: 0.5)
-            move.timingMode = .easeOut
-            let fade = SKAction.fadeOut(withDuration: 0.5)
-            let remove = SKAction.removeFromParent()
-            particle.run(SKAction.sequence([SKAction.group([move, fade]), remove]))
+            let moveOut = SKAction.moveBy(x: dx, y: dy * 0.7, duration: duration * 0.5)
+            moveOut.timingMode = .easeOut
+            let gravity = SKAction.moveBy(x: 0, y: -50, duration: duration * 0.5)
+            gravity.timingMode = .easeIn
+            let rotate = SKAction.rotate(byAngle: CGFloat.random(in: -4...4), duration: duration)
+            let fade = SKAction.fadeOut(withDuration: duration)
+
+            particle.run(SKAction.group([
+                SKAction.sequence([moveOut, gravity]),
+                rotate, fade,
+                SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])
+            ]))
         }
+
+        // Heavy screen shake
+        shakeScreen(intensity: 8, duration: 0.25)
     }
 
     func animateGravityAndRefill(result: GravityResult, completion: @escaping () -> Void) {
