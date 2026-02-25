@@ -54,6 +54,10 @@ class GameScene: SKScene {
     var hintNodes: [SKNode] = []
     var hintedTiles: [TileModel] = []
 
+    // Laser direction picker
+    var laserDirectionOverlay: SKNode?
+    var pendingLaserTile: TileModel?
+
     // Economy
     var coinHUDLabel: SKLabelNode!
     var continueManager = ContinueManager()
@@ -377,6 +381,27 @@ class GameScene: SKScene {
             startTimer()
         }
 
+        // Check laser direction picker first
+        if laserDirectionOverlay != nil {
+            let tapped = nodes(at: location)
+            for node in tapped {
+                let name = node.name ?? ""
+                if name == "laserRowBtn" || (node.parent?.name == "laserRowBtn") {
+                    fireLaser(direction: "row")
+                    return
+                }
+                if name == "laserColBtn" || (node.parent?.name == "laserColBtn") {
+                    fireLaser(direction: "col")
+                    return
+                }
+                if name == "laserCancelBtn" {
+                    dismissLaserDirectionPicker()
+                    return
+                }
+            }
+            return // block other taps while picker is shown
+        }
+
         // Check result screen first
         if checkResultScreenTap(location) { return }
 
@@ -577,12 +602,14 @@ class GameScene: SKScene {
         }
 
         if !isValid {
+            SoundManager.shared.playWordFail()
             shakeSelection()
             clearSelection()
             return
         }
 
         // Valid word — clear hint highlights
+        SoundManager.shared.playWordSuccess()
         clearHintHighlights()
 
         // Increment word submit count
@@ -740,6 +767,7 @@ class GameScene: SKScene {
         if coinsForWord > 0 {
             gameState.coinsEarnedThisLevel += coinsForWord
             CoinManager.shared.addCoins(coinsForWord, reason: .levelReward)
+            SoundManager.shared.playCoinEarned()
             // Animate coin fly from last tile to coin HUD
             if let lastTile = selectedPath.last {
                 animateCoinFly(from: lastTile, amount: coinsForWord)
@@ -1527,6 +1555,7 @@ class GameScene: SKScene {
 
     func handlePowerUpActivation(_ type: PowerUpType) {
         guard powerUpSystem.canUse(type) else { return }
+        SoundManager.shared.playPowerUp()
 
         switch type {
         case .hint:
@@ -1548,9 +1577,11 @@ class GameScene: SKScene {
             }
 
         case .laser:
-            // Place laser tile randomly on board
+            // Place laser tile on board, then show direction picker
             if let tile = powerUpSystem.placeLaser() {
                 refreshTileSprite(for: tile)
+                pendingLaserTile = tile
+                showLaserDirectionPicker()
             }
 
         case .crossLaser:
@@ -1650,6 +1681,138 @@ class GameScene: SKScene {
         hintedTiles.removeAll()
     }
 
+    // MARK: - Laser Direction Picker
+
+    func showLaserDirectionPicker() {
+        laserDirectionOverlay?.removeFromParent()
+
+        let overlay = SKNode()
+        overlay.zPosition = 300
+        overlay.name = "laserDirectionOverlay"
+        addChild(overlay)
+        laserDirectionOverlay = overlay
+
+        // Background pill
+        let pillWidth: CGFloat = 280
+        let pillHeight: CGFloat = 60
+        let pill = SKShapeNode(rectOf: CGSize(width: pillWidth, height: pillHeight), cornerRadius: 14)
+        pill.fillColor = SKColor(red: 0.1, green: 0.08, blue: 0.2, alpha: 0.95)
+        pill.strokeColor = SKColor(red: 0.5, green: 0.4, blue: 0.9, alpha: 0.7)
+        pill.lineWidth = 1.5
+        pill.position = CGPoint(x: size.width / 2, y: 80)
+        overlay.addChild(pill)
+
+        // Prompt label
+        let promptLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
+        promptLabel.text = "Laser direction:"
+        promptLabel.fontSize = 13
+        promptLabel.fontColor = SKColor(white: 0.7, alpha: 1.0)
+        promptLabel.horizontalAlignmentMode = .center
+        promptLabel.verticalAlignmentMode = .center
+        promptLabel.position = CGPoint(x: 0, y: 12)
+        pill.addChild(promptLabel)
+
+        // Row button
+        let rowBtn = createDirectionButton(text: "↔ Row", name: "laserRowBtn")
+        rowBtn.position = CGPoint(x: -68, y: -10)
+        pill.addChild(rowBtn)
+
+        // Column button
+        let colBtn = createDirectionButton(text: "↕ Column", name: "laserColBtn")
+        colBtn.position = CGPoint(x: 52, y: -10)
+        pill.addChild(colBtn)
+
+        // Cancel
+        let cancelLabel = SKLabelNode(fontNamed: "AvenirNext-Regular")
+        cancelLabel.text = "✕"
+        cancelLabel.fontSize = 14
+        cancelLabel.fontColor = SKColor(white: 0.45, alpha: 1.0)
+        cancelLabel.position = CGPoint(x: pillWidth / 2 - 16, y: pillHeight / 2 - 14)
+        cancelLabel.name = "laserCancelBtn"
+        pill.addChild(cancelLabel)
+
+        // Pulse animation
+        overlay.alpha = 0
+        overlay.run(SKAction.fadeIn(withDuration: 0.2))
+    }
+
+    private func createDirectionButton(text: String, name: String) -> SKNode {
+        let container = SKNode()
+        container.name = name
+
+        let bg = SKShapeNode(rectOf: CGSize(width: 110, height: 34), cornerRadius: 10)
+        bg.fillColor = SKColor(red: 0.35, green: 0.22, blue: 0.7, alpha: 1.0)
+        bg.strokeColor = .clear
+        container.addChild(bg)
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.text = text
+        label.fontSize = 14
+        label.fontColor = .white
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        label.name = name
+        container.addChild(label)
+
+        return container
+    }
+
+    func dismissLaserDirectionPicker() {
+        laserDirectionOverlay?.run(SKAction.sequence([
+            SKAction.fadeOut(withDuration: 0.15),
+            SKAction.removeFromParent()
+        ]))
+        laserDirectionOverlay = nil
+        pendingLaserTile = nil
+    }
+
+    func fireLaser(direction: String) {
+        guard let tile = pendingLaserTile else {
+            dismissLaserDirectionPicker()
+            return
+        }
+        dismissLaserDirectionPicker()
+
+        let isRow = direction == "row"
+
+        // Animate laser effect
+        animateLaserEffect(at: tile, isRow: isRow)
+
+        // Clear the row or column
+        var tilesToClear: [TileModel] = []
+        if isRow {
+            for c in 0..<boardModel.cols {
+                if let t = boardModel.tileAt(row: tile.row, col: c) {
+                    tilesToClear.append(t)
+                }
+            }
+        } else {
+            for r in 0..<boardModel.rows {
+                if let t = boardModel.tileAt(row: r, col: tile.col) {
+                    tilesToClear.append(t)
+                }
+            }
+        }
+
+        // Score explosion points
+        let pts = ScoringEngine.shared.explosionScore(for: tilesToClear)
+        gameState.score += pts
+
+        animateExplosions(tiles: tilesToClear) { [weak self] in
+            guard let self = self else { return }
+            let _ = self.boardModel.clearTiles(tilesToClear)
+            let gravityResult = self.boardModel.applyGravityAndRefill(
+                wordSubmitCount: self.gameState.wordSubmitCount
+            )
+            self.animateGravityAndRefill(result: gravityResult) { [weak self] in
+                self?.checkLevelCompletion()
+                self?.updateHUD()
+            }
+        }
+
+        updateHUD()
+    }
+
     // MARK: - Timer
 
     func startTimer() {
@@ -1735,6 +1898,27 @@ class GameScene: SKScene {
         progress.levelProgress[levelNum] = levelProg
         progress.powerUpInventory = powerUpSystem.currentInventory()
         persistence.saveProgress(progress)
+
+        // Update lifetime stats (only on completion)
+        if gameState.isLevelComplete {
+            let longestWord = gameState.wordsFound.max(by: { $0.count < $1.count }) ?? ""
+            persistence.updateStatsOnLevelComplete(
+                levelNumber: levelNum,
+                wordsFound: gameState.wordsFound.count,
+                score: gameState.score,
+                stars: stars,
+                maxStreak: Double(gameState.maxStreakReached),
+                maxCascade: gameState.maxCascadeReached,
+                timeRemaining: Int(gameState.timeRemaining),
+                coinsEarned: gameState.coinsEarnedThisLevel,
+                longestWord: longestWord
+            )
+        }
+
+        // Play level end sound
+        if gameState.isLevelComplete {
+            SoundManager.shared.playLevelComplete()
+        }
 
         // Show results screen
         showLevelCompleteScreen(score: gameState.score, stars: stars, completed: gameState.isLevelComplete)

@@ -18,6 +18,23 @@ struct PowerUpInventory: Codable {
     var mineCount: Int = 1
 }
 
+// MARK: - GameStats
+
+struct GameStats: Codable {
+    var totalWordsFound: Int = 0
+    var totalScore: Int = 0
+    var levelsCompleted: Int = 0
+    var bestStreak: Double = 1.0
+    var bestCascade: Int = 0
+    var longestWord: String = ""
+    var totalCoinsEarned: Int = 0
+    var levelBestTimes: [Int: Int] = [:]   // level → seconds remaining
+    var levelBestScores: [Int: Int] = [:]  // level → best score
+    var levelStars: [Int: Int] = [:]       // level → stars (1–3)
+    var sessionsPlayed: Int = 0
+    var lastPlayedDate: String = ""
+}
+
 // MARK: - PlayerProgress
 
 struct PlayerProgress: Codable {
@@ -26,4 +43,5 @@ struct PlayerProgress: Codable {
     var powerUpInventory: PowerUpInventory = PowerUpInventory()
     var soundEnabled: Bool = true
     var hapticsEnabled: Bool = true
+    var stats: GameStats = GameStats()
 }

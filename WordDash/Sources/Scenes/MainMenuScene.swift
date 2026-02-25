@@ -10,6 +10,7 @@ class MainMenuScene: SKScene {
         backgroundColor = SKColor(red: 0.1, green: 0.1, blue: 0.2, alpha: 1.0)
         setupUI()
         checkDailyLogin()
+        checkFirstLaunchTutorial()
         NotificationCenter.default.addObserver(self, selector: #selector(updateCoinDisplay), name: .coinBalanceChanged, object: nil)
     }
 
@@ -58,6 +59,12 @@ class MainMenuScene: SKScene {
         settingsBtn.name = "settingsButton"
         addChild(settingsBtn)
 
+        // Stats Button
+        let statsBtn = createMenuButton(text: "📊 Stats", color: SKColor(red: 0.25, green: 0.5, blue: 0.45, alpha: 1.0))
+        statsBtn.position = CGPoint(x: size.width / 2, y: size.height * 0.15)
+        statsBtn.name = "statsButton"
+        addChild(statsBtn)
+
         // Version label
         let versionLabel = SKLabelNode(fontNamed: "AvenirNext-Regular")
         versionLabel.text = "MVP v1.1"
@@ -68,6 +75,32 @@ class MainMenuScene: SKScene {
 
         // Decorative tiles animation
         addDecorativeTiles()
+    }
+
+    func checkFirstLaunchTutorial() {
+        let seen = UserDefaults.standard.bool(forKey: "worddash_tutorial_seen")
+        guard !seen else { return }
+
+        // Show tutorial 0.8s after menu appears
+        run(SKAction.wait(forDuration: 0.8)) { [weak self] in
+            guard let self = self else { return }
+            let tutorial = TutorialScene(size: self.size)
+            tutorial.scaleMode = .aspectFill
+            tutorial.zPosition = 300
+            tutorial.onDismiss = { /* nothing needed — tutorial marks itself seen */ }
+            // Present as overlay by adding as child scene isn't typical in SpriteKit,
+            // so present as a new scene transition with a dim fade.
+            let overlay = SKNode()
+            overlay.zPosition = 250
+            self.addChild(overlay)
+
+            let tutScene = TutorialScene(size: self.size)
+            tutScene.scaleMode = self.scaleMode
+            tutScene.onDismiss = { [weak overlay] in
+                overlay?.removeFromParent()
+            }
+            self.view?.presentScene(tutScene, transition: SKTransition.fade(withDuration: 0.3))
+        }
     }
 
     func checkDailyLogin() {
@@ -149,6 +182,10 @@ class MainMenuScene: SKScene {
             view?.presentScene(scene, transition: SKTransition.fade(withDuration: 0.3))
         } else if isButtonTapped(name: "settingsButton", at: location) {
             showSettings()
+        } else if isButtonTapped(name: "statsButton", at: location) {
+            let scene = StatsScene(size: size)
+            scene.scaleMode = scaleMode
+            view?.presentScene(scene, transition: SKTransition.fade(withDuration: 0.3))
         }
     }
 

@@ -132,6 +132,7 @@ class SettingsScene: SKScene {
                 progress.soundEnabled.toggle()
                 updateToggle(toggle, isOn: progress.soundEnabled)
                 PersistenceManager.shared.saveProgress(progress)
+                SoundManager.shared.isEnabled = progress.soundEnabled
                 return
             }
         }

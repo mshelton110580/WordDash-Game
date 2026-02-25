@@ -72,4 +72,66 @@ class PersistenceManager {
         progress.powerUpInventory = inventory
         saveProgress(progress)
     }
+
+    // MARK: - Stats
+
+    func loadStats() -> GameStats {
+        return loadProgress().stats
+    }
+
+    func saveStats(_ stats: GameStats) {
+        var progress = loadProgress()
+        progress.stats = stats
+        saveProgress(progress)
+    }
+
+    /// Update stats after a level is completed.
+    func updateStatsOnLevelComplete(
+        levelNumber: Int,
+        wordsFound: Int,
+        score: Int,
+        stars: Int,
+        maxStreak: Double,
+        maxCascade: Int,
+        timeRemaining: Int,
+        coinsEarned: Int,
+        longestWord: String
+    ) {
+        var progress = loadProgress()
+        var stats = progress.stats
+
+        stats.totalWordsFound += wordsFound
+        stats.totalScore += score
+        stats.levelsCompleted += 1
+        stats.sessionsPlayed += 1
+        stats.totalCoinsEarned += coinsEarned
+
+        if maxStreak > stats.bestStreak { stats.bestStreak = maxStreak }
+        if maxCascade > stats.bestCascade { stats.bestCascade = maxCascade }
+        if longestWord.count > stats.longestWord.count { stats.longestWord = longestWord }
+
+        // Per-level bests
+        let prevTime = stats.levelBestTimes[levelNumber] ?? -1
+        if timeRemaining > prevTime { stats.levelBestTimes[levelNumber] = timeRemaining }
+        let prevScore = stats.levelBestScores[levelNumber] ?? 0
+        if score > prevScore { stats.levelBestScores[levelNumber] = score }
+        let prevStars = stats.levelStars[levelNumber] ?? 0
+        if stars > prevStars { stats.levelStars[levelNumber] = stars }
+
+        // Last played date
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        stats.lastPlayedDate = formatter.string(from: Date())
+
+        progress.stats = stats
+        saveProgress(progress)
+    }
+
+    // MARK: - Reset
+
+    func resetStats() {
+        var progress = loadProgress()
+        progress.stats = GameStats()
+        saveProgress(progress)
+    }
 }

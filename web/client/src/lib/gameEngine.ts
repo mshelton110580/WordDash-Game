@@ -910,6 +910,43 @@ export function useLaserPowerUp(state: GameState) {
   state.activePowerUp = null;
 }
 
+// Laser direction-choice variant: player taps a tile, then swipes to choose row vs column.
+// laserDirection: 'row' fires horizontally, 'col' fires vertically.
+export function useLaserPowerUpDirected(state: GameState, row: number, col: number, direction: 'row' | 'col') {
+  if (state.powerUps.laser <= 0) return;
+  const tile = state.board[row]?.[col];
+  if (!tile) return;
+  state.powerUps.laser--;
+  state.timerStarted = true;
+
+  // Award explosion points and clear the targeted row or column
+  state.laserEffects.push({ type: direction, row, col, timestamp: Date.now() });
+
+  if (direction === 'row') {
+    for (let c = 0; c < state.boardSize; c++) {
+      if (state.board[row]?.[c]) state.explosionClears.push({ row, col: c, specialType: 'laser' });
+      awardExplosionPoints(state, row, c);
+      hitIce(state, row, c);
+      clearTile(state, row, c);
+    }
+  } else {
+    for (let r = 0; r < state.boardSize; r++) {
+      if (state.board[r]?.[col]) state.explosionClears.push({ row: r, col, specialType: 'laser' });
+      awardExplosionPoints(state, r, col);
+      hitIce(state, r, col);
+      clearTile(state, r, col);
+    }
+  }
+
+  // Trigger deferred gravity+refill
+  const animDuration = state.boardSize * 25 + 350;
+  state.pendingClear = true;
+  state.pendingClearTimestamp = Date.now();
+  state.pendingClearDuration = animDuration;
+  state.pendingGravity = true;
+  state.activePowerUp = null;
+}
+
 // Cross Laser power-up: places a crossLaser special tile at a random position.
 // The tile keeps its letter and triggers when included in a valid word.
 export function useCrossLaserPowerUp(state: GameState) {
