@@ -30,3 +30,10 @@ Carthage/Build/
 # Misc
 *.swp
 *~
+
+# Web project
+web/node_modules/
+web/dist/
+web/.manus-logs/
+web/.manus/
+web/__manus__/
