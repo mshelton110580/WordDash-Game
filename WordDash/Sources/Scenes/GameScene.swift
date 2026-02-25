@@ -623,6 +623,10 @@ class GameScene: SKScene {
         // Track word for coin calculation
         gameState.wordsFound.append(word)
 
+        // Snapshot score BEFORE award (for animated counter)
+        let scoreBefore = gameState.score
+        let coinsBefore = CoinManager.shared.balance
+
         // Calculate score (letterMultiplier applied inside baseLetterScore)
         let scoreResult = ScoringEngine.shared.calculateScore(tiles: selectedPath, gameState: gameState)
         gameState.score += scoreResult.totalScore
@@ -630,7 +634,7 @@ class GameScene: SKScene {
         // Track moves
         gameState.movesUsed += 1
 
-        // Show score popup
+        // Show score popup (legacy small-tier only; big/medium handled by RewardFeedbackManager below)
         showScorePopup(scoreResult.totalScore, at: selectedPath.last!)
 
         // Determine special tile spawn
@@ -768,13 +772,85 @@ class GameScene: SKScene {
             gameState.coinsEarnedThisLevel += coinsForWord
             CoinManager.shared.addCoins(coinsForWord, reason: .levelReward)
             SoundManager.shared.playCoinEarned()
-            // Animate coin fly from last tile to coin HUD
-            if let lastTile = selectedPath.last {
-                animateCoinFly(from: lastTile, amount: coinsForWord)
-            }
         }
 
+        // ── 3-Tier Explosion + Reward Feedback ──────────────────────────────────
+        // Determine dominant cause from word path (highest-priority special tile)
+        let dominantCause = dominantExplosionCause(from: specialEvents, isDualBomb: isDualBomb)
+
+        // Select tier automatically
+        let tier = ExplosionConfig.selectTier(
+            points: scoreResult.totalScore,
+            coins: coinsForWord,
+            cause: dominantCause,
+            streakMultiplier: gameState.streakMultiplier
+        )
+
+        // Explosion origin: centroid of cleared tiles (or mid-tile of word path)
+        let midTile = selectedPath[selectedPath.count / 2]
+        let explosionOrigin = boardNode.convert(positionForTile(row: midTile.row, col: midTile.col), to: effectsLayer)
+
+        // Build HUD targets in scene space
+        let hudTargets = HUDTargets(
+            scoreLabelPosition: scoreLabel.convert(CGPoint.zero, to: self),
+            coinLabelPosition: coinHUDLabel.convert(CGPoint.zero, to: self)
+        )
+
+        // Play per-tile VFX via the new manager (replaces old showScorePopup for medium/big)
+        // playExplosion fires at the word centroid for a satisfying center-of-gravity burst
+        ExplosionManager.shared.playExplosion(
+            origin: explosionOrigin,
+            tier: tier,
+            cause: dominantCause,
+            in: effectsLayer,
+            tileSize: tileSize
+        )
+
+        // Show reward popups + HUD count-up (only if medium or big to avoid duplicate with showScorePopup)
+        if tier == .medium || tier == .big {
+            let rewardOrigin = hudNode.convert(
+                boardNode.convert(positionForTile(row: midTile.row, col: midTile.col), to: self),
+                from: self
+            )
+            RewardFeedbackManager.shared.showRewards(
+                origin: explosionOrigin,
+                tier: tier,
+                points: scoreResult.totalScore,
+                coins: coinsForWord,
+                hudTargets: hudTargets,
+                scoreLabel: scoreLabel,
+                coinLabel: coinHUDLabel,
+                currentScore: scoreBefore,
+                currentCoins: coinsBefore,
+                in: effectsLayer
+            )
+        }
+        // ────────────────────────────────────────────────────────────────────────
+
         updateHUD()
+    }
+
+    /// Determine the highest-priority explosion cause from special clear events.
+    private func dominantExplosionCause(from events: [ClearEvent], isDualBomb: Bool) -> ExplosionCause {
+        if isDualBomb { return .chainResolve }
+        var hasBomb = false
+        var hasLaser = false
+        var hasCrossLaser = false
+        var hasMine = false
+        for event in events {
+            switch event.reason {
+            case .bomb:       hasBomb = true
+            case .laser:      hasLaser = true
+            case .crossLaser: hasCrossLaser = true
+            case .mine:       hasMine = true
+            default:          break
+            }
+        }
+        if hasCrossLaser { return .crossLaser }
+        if hasBomb       { return .bomb }
+        if hasLaser      { return .laser }
+        if hasMine       { return .mine }
+        return .normalClear
     }
 
     // MARK: - Coin Fly Animation
@@ -854,9 +930,26 @@ class GameScene: SKScene {
             let minePts = ScoringEngine.shared.explosionScore(for: affected)
             gameState.score += minePts
 
-            animateExplosions(tiles: affected) { [weak self] in
+            // Mine chains are always a BIG moment — use big tier for dramatic effect
+            animateExplosions(tiles: affected, tier: .big) { [weak self] in
                 guard let self = self else { return }
                 let result = self.boardModel.clearTiles(affected)
+
+                // Chain resolve explosion at board center for full BIG treatment
+                let centerPos = self.boardNode.convert(
+                    CGPoint(
+                        x: self.tileSize * CGFloat(self.boardModel.cols) / 2,
+                        y: self.tileSize * CGFloat(self.boardModel.rows) / 2
+                    ),
+                    to: self.effectsLayer
+                )
+                ExplosionManager.shared.playExplosion(
+                    origin: centerPos,
+                    tier: .big,
+                    cause: .chainResolve,
+                    in: self.effectsLayer,
+                    tileSize: self.tileSize
+                )
 
                 // Check for more mines
                 let moreMines = result.removed.filter { $0.hasMineOverlay }
@@ -883,48 +976,52 @@ class GameScene: SKScene {
     // MARK: - Premium Effects: Layered Explosions
 
     func animateExplosions(tiles: [TileModel], completion: @escaping () -> Void) {
+        animateExplosions(tiles: tiles, tier: .small, completion: completion)
+    }
+
+    /// Animate tile sprites through squash→pop→fade using the given tier's timing,
+    /// then spawn per-tile VFX via ExplosionManager.
+    func animateExplosions(tiles: [TileModel], tier: ExplosionTier, completion: @escaping () -> Void) {
         let group = DispatchGroup()
 
         for (index, tile) in tiles.enumerated() {
             guard let sprite = tileSprites[tile.id] else { continue }
             group.enter()
 
-            // Stagger each tile by index * 0.015s for ripple effect
             let staggerDelay = Double(index) * 0.015
+            let cause = ExplosionManager.shared.cause(for: tile.specialType)
 
-            // Determine theme color based on special type
-            let themeColor = effectColor(for: tile.specialType)
-
+            // Spawn per-tile VFX after stagger delay
             sprite.run(SKAction.sequence([
                 SKAction.wait(forDuration: staggerDelay),
                 SKAction.run { [weak self] in
                     guard let self = self else { return }
-                    // White/yellow flash overlay
-                    self.spawnFlash(at: sprite.position, color: themeColor)
-                    // Multi-emitter particles
-                    self.spawnLayeredParticles(at: sprite.position, specialType: tile.specialType)
-                    // Shockwave ring for special tiles
+                    let pos = sprite.position
+                    // Per-tile particle burst (use existing layered system for backward compat)
+                    self.spawnFlash(at: pos, color: self.effectColor(for: tile.specialType))
+                    self.spawnLayeredParticles(at: pos, specialType: tile.specialType)
                     if tile.specialType != nil {
-                        self.spawnShockwaveRing(at: sprite.position, color: themeColor)
+                        self.spawnShockwaveRing(at: pos, color: self.effectColor(for: tile.specialType))
                     }
-                },
-                // Phase 1: Squash (compress vertically)
-                SKAction.group([
-                    SKAction.scaleX(to: 1.15, duration: 0.06),
-                    SKAction.scaleY(to: 0.85, duration: 0.06)
-                ]),
-                // Phase 2: Pop (scale up with flash)
-                SKAction.group([
-                    SKAction.scale(to: 1.3, duration: 0.08),
-                    SKAction.fadeAlpha(to: 0.7, duration: 0.08)
-                ]),
-                // Phase 3: Shrink + fade out
-                SKAction.group([
-                    SKAction.scale(to: 0.0, duration: 0.12),
-                    SKAction.fadeOut(withDuration: 0.12)
-                ]),
-                SKAction.removeFromParent()
-            ])) {
+                    // For medium/big tiers, also fire the ExplosionManager burst at each tile
+                    if tier == .medium || tier == .big {
+                        ExplosionManager.shared.playExplosion(
+                            origin: pos,
+                            tier: tier == .big && tile.specialType != nil ? .big : tier,
+                            cause: cause,
+                            in: self.boardNode,
+                            tileSize: self.tileSize
+                        )
+                    }
+                }
+            ]))
+
+            // Tile squash-pop-fade animation
+            ExplosionManager.shared.animateTileExplosion(
+                sprite: sprite,
+                tier: tier,
+                staggerDelay: staggerDelay
+            ) {
                 group.leave()
             }
 
