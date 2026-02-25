@@ -624,32 +624,103 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       if (p.blend === 'add') {
         ctx.globalCompositeOperation = 'lighter';
       }
-      // Boosted alpha for visibility
-      ctx.globalAlpha = alpha * (p.role === 'dust' ? 0.5 : p.role === 'sparkle' ? 0.9 : 0.85);
 
-      if (p.shape === 'rect') {
-        // Wood chips: rotated rectangles
+      if (p.shape === 'shard' && p.points && p.points.length >= 3) {
+        // ── SHARD / DEBRIS: irregular polygon with wood-grain stripe ──
+        // Fade: debris grows toward viewer so alpha drops sharply near end
+        const fadeAlpha = p.role === 'debris'
+          ? alpha * alpha * 0.9          // quadratic — punchy fast-fade
+          : alpha * 0.88;
+        ctx.globalAlpha = fadeAlpha;
         ctx.translate(px, py);
         ctx.rotate(p.rotation);
+
+        // Scale based on current w/h (may have grown via zScale)
+        const scaleW = (p.w || p.size * 2) / (p.points[0] ? Math.abs(p.points[0].x) * 2 || 1 : 1);
+        // Just draw the polygon directly using the stored absolute-coord points
+        ctx.beginPath();
+        const pts = p.points;
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.closePath();
         ctx.fillStyle = p.color;
-        const w = p.size * 2;
-        const h = p.size * 0.8;
-        ctx.fillRect(-w / 2, -h / 2, w, h);
+        ctx.fill();
+
+        // Wood-grain: a diagonal stripe across the shard in color2
+        if (p.color2 && alpha > 0.25) {
+          ctx.save();
+          ctx.clip(); // clip to shard shape
+          ctx.globalAlpha = fadeAlpha * 0.45;
+          ctx.strokeStyle = p.color2;
+          ctx.lineWidth = (p.h || p.size) * 0.28;
+          const hw = (p.w || p.size * 2) * 0.7;
+          ctx.beginPath();
+          ctx.moveTo(-hw, -hw * 0.3);
+          ctx.lineTo(hw, hw * 0.3);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Thin dark outline for readability
+        if (alpha > 0.4) {
+          ctx.globalAlpha = fadeAlpha * 0.35;
+          ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+
+      } else if (p.shape === 'rect') {
+        // ── CHIP: elongated wood splinter ──
+        ctx.globalAlpha = alpha * 0.88;
+        ctx.translate(px, py);
+        ctx.rotate(p.rotation);
+        const w = p.w ?? p.size * 2;
+        const h = p.h ?? p.size * 0.7;
+        ctx.fillStyle = p.color;
+        // Rounded ends for a splinter look
+        const r = Math.min(h / 2, 2);
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(-w / 2, -h / 2, w, h, r);
+        } else {
+          ctx.rect(-w / 2, -h / 2, w, h);
+        }
+        ctx.fill();
+
+        // Highlight edge (lighter stripe down the center of the splinter)
+        if (alpha > 0.35 && h > 2.5) {
+          ctx.globalAlpha = alpha * 0.3;
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.fillRect(-w / 2 + 1, -h * 0.1, w - 2, h * 0.25);
+        }
+
       } else {
+        // ── DUST / SPARKLE: circles ──
         ctx.fillStyle = p.color;
         ctx.beginPath();
         const radius = p.role === 'dust'
-          ? p.size * (1 + (1 - alpha) * 0.8) // dust expands as it fades
-          : p.size * (0.5 + alpha * 0.5); // sparkles shrink
+          ? p.size * (1 + (1 - alpha) * 0.9) // dust expands as it fades
+          : p.size * (0.4 + alpha * 0.6);      // sparkles shrink
+        ctx.globalAlpha = alpha * (p.role === 'dust' ? 0.45 : 0.9);
         ctx.arc(px, py, Math.max(0.5, radius), 0, Math.PI * 2);
         ctx.fill();
 
-        // Sparkle glow halo
-        if (p.role === 'sparkle' && alpha > 0.2) {
-          ctx.globalAlpha = alpha * 0.4;
+        // Sparkle: cross-hair glow (+) and outer halo
+        if (p.role === 'sparkle' && alpha > 0.25) {
+          // Outer halo
+          ctx.globalAlpha = alpha * 0.35;
           ctx.beginPath();
-          ctx.arc(px, py, Math.max(0.5, radius * 3), 0, Math.PI * 2);
+          ctx.arc(px, py, Math.max(0.5, radius * 2.8), 0, Math.PI * 2);
           ctx.fill();
+          // Cross-hair arms
+          ctx.globalAlpha = alpha * 0.7;
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 0.8;
+          const arm = radius * 2.2;
+          ctx.beginPath();
+          ctx.moveTo(px - arm, py); ctx.lineTo(px + arm, py);
+          ctx.moveTo(px, py - arm); ctx.lineTo(px, py + arm);
+          ctx.stroke();
         }
       }
 

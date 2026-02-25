@@ -971,7 +971,33 @@ class GameScene: SKScene {
         ]))
     }
 
-    /// Multi-emitter particle system: wood chips + dust puffs + sparkles
+    /// Tint a color toward white (+) or dark (-), amount ∈ [-1, 1]
+    private func tintColor(_ color: SKColor, by amount: CGFloat) -> SKColor {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let c = amount > 0 ? amount : 0
+        let d = amount < 0 ? -amount : 0
+        return SKColor(red: min(1, r + c - d * r), green: min(1, g + c - d * g), blue: min(1, b + c - d * b), alpha: a)
+    }
+
+    /// Build an irregular convex shard polygon path centered at origin
+    private func makeShardPath(w: CGFloat, h: CGFloat) -> CGPath {
+        let sides = 4 + Int.random(in: 0...2)
+        let path = CGMutablePath()
+        for i in 0..<sides {
+            let baseAngle = CGFloat(i) / CGFloat(sides) * 2 * .pi
+            let jitter = CGFloat.random(in: -0.35...0.35)
+            let r = CGFloat.random(in: 0.32...0.62)
+            let px = cos(baseAngle + jitter) * r * w
+            let py = sin(baseAngle + jitter) * r * h
+            if i == 0 { path.move(to: CGPoint(x: px, y: py)) }
+            else { path.addLine(to: CGPoint(x: px, y: py)) }
+        }
+        path.closeSubpath()
+        return path
+    }
+
+    /// Multi-emitter particle system — shards, chips, debris (toward viewer), dust, sparkles
     func spawnLayeredParticles(at position: CGPoint, specialType: SpecialTileType?) {
         let container = SKNode()
         container.position = position
@@ -979,94 +1005,166 @@ class GameScene: SKScene {
         boardNode.addChild(container)
 
         let themeColor = effectColor(for: specialType)
+        let grainLight = tintColor(themeColor, by: 0.18)
+        let grainDark  = tintColor(themeColor, by: -0.15)
         let isBig = specialType != nil
 
-        // --- Emitter 1: Wood chips (small rectangles, gravity downward) ---
+        // ── Emitter 1: Shards (irregular polygon fragments in all directions) ──
+        let shardCount = isBig ? 8 : 5
+        for _ in 0..<shardCount {
+            let w = CGFloat.random(in: 6...16)
+            let h = CGFloat.random(in: 4...11)
+            let shard = SKShapeNode(path: makeShardPath(w: w, h: h))
+            shard.fillColor = Bool.random() ? themeColor : grainLight
+            shard.strokeColor = grainDark.withAlphaComponent(0.4)
+            shard.lineWidth = 0.6
+            shard.zRotation = CGFloat.random(in: 0...(2 * .pi))
+
+            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let speed = CGFloat.random(in: 55...130)
+            let dx = cos(angle) * speed
+            // Mix: some fly upward/sideways, ~25% fly downward (toward viewer in 2D)
+            let isTowardViewer = CGFloat.random(in: 0...1) < 0.25
+            let dyBase = sin(angle) * speed
+            let dy = isTowardViewer ? CGFloat.random(in: -20...30) : dyBase
+            let duration = Double.random(in: 0.3...0.55)
+
+            let moveOut: SKAction
+            if isTowardViewer {
+                // Toward viewer: grow rapidly + slow down
+                let growScale = CGFloat.random(in: 2.2...4.0)
+                let grow = SKAction.scale(to: growScale, duration: duration)
+                grow.timingMode = .easeIn
+                let slowMove = SKAction.moveBy(x: dx * 0.3, y: dy, duration: duration)
+                slowMove.timingMode = .easeOut
+                let fade = SKAction.fadeOut(withDuration: duration * 0.85)
+                let rotate = SKAction.rotate(byAngle: CGFloat.random(in: -1.5...1.5), duration: duration)
+                shard.run(SKAction.group([grow, slowMove, fade, rotate,
+                    SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])]))
+                continue
+            } else {
+                let move1 = SKAction.moveBy(x: dx, y: dy, duration: duration * 0.45)
+                move1.timingMode = .easeOut
+                let gravity = SKAction.moveBy(x: 0, y: -CGFloat.random(in: 25...55), duration: duration * 0.55)
+                gravity.timingMode = .easeIn
+                moveOut = SKAction.sequence([move1, gravity])
+            }
+            let rotate = SKAction.rotate(byAngle: CGFloat.random(in: -4...4), duration: duration)
+            let fade = SKAction.fadeOut(withDuration: duration * 0.8)
+            shard.run(SKAction.group([moveOut, rotate, fade,
+                SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])]))
+            container.addChild(shard)
+        }
+
+        // ── Emitter 2: Chips (elongated wood splinters) ──────────────────────────
         let chipCount = isBig ? 10 : 6
         for _ in 0..<chipCount {
-            let w = CGFloat.random(in: 3...7)
-            let h = CGFloat.random(in: 2...4)
-            let chip = SKShapeNode(rectOf: CGSize(width: w, height: h))
-            chip.fillColor = themeColor.withAlphaComponent(CGFloat.random(in: 0.7...1.0))
+            let w = CGFloat.random(in: 6...18)
+            let h = CGFloat.random(in: 2...4.5)
+            let chip = SKShapeNode(rectOf: CGSize(width: w, height: h), cornerRadius: min(h / 2, 2))
+            chip.fillColor = Bool.random() ? themeColor : grainDark
             chip.strokeColor = .clear
             chip.zRotation = CGFloat.random(in: 0...(2 * .pi))
 
             let angle = CGFloat.random(in: 0...(2 * .pi))
-            let speed = CGFloat.random(in: 40...100)
+            let speed = CGFloat.random(in: 45...115)
             let dx = cos(angle) * speed
             let dy = sin(angle) * speed
-            let duration = Double.random(in: 0.25...0.45)
+            let duration = Double.random(in: 0.22...0.45)
 
-            // Move outward + gravity pulls down
-            let moveOut = SKAction.moveBy(x: dx, y: dy, duration: duration * 0.4)
-            moveOut.timingMode = .easeOut
-            let gravity = SKAction.moveBy(x: 0, y: -30, duration: duration * 0.6)
+            let move1 = SKAction.moveBy(x: dx, y: dy, duration: duration * 0.4)
+            move1.timingMode = .easeOut
+            let gravity = SKAction.moveBy(x: dx * 0.1, y: -CGFloat.random(in: 20...50), duration: duration * 0.6)
             gravity.timingMode = .easeIn
-            let rotate = SKAction.rotate(byAngle: CGFloat.random(in: -3...3), duration: duration)
+            let rotate = SKAction.rotate(byAngle: CGFloat.random(in: -5...5), duration: duration)
             let fade = SKAction.fadeOut(withDuration: duration)
 
             chip.run(SKAction.group([
-                SKAction.sequence([moveOut, gravity]),
-                rotate,
-                fade,
+                SKAction.sequence([move1, gravity]),
+                rotate, fade,
                 SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])
             ]))
             container.addChild(chip)
         }
 
-        // --- Emitter 2: Dust puffs (soft circles, quick fade, low alpha) ---
+        // ── Emitter 3: Debris toward viewer (grow in scale, fast fade) ────────────
+        let debrisCount = isBig ? 4 : 2
+        for _ in 0..<debrisCount {
+            let w = CGFloat.random(in: 8...16)
+            let h = CGFloat.random(in: 5...11)
+            let debris = SKShapeNode(path: makeShardPath(w: w, h: h))
+            debris.fillColor = Bool.random() ? themeColor : grainLight
+            debris.strokeColor = grainDark.withAlphaComponent(0.3)
+            debris.lineWidth = 0.5
+            debris.zRotation = CGFloat.random(in: 0...(2 * .pi))
+
+            let duration = Double.random(in: 0.22...0.42)
+            let growScale = CGFloat.random(in: 2.5...5.0) // rushes toward viewer
+            let dx = CGFloat.random(in: -25...25)
+            let dy = CGFloat.random(in: -15...20)
+
+            let grow = SKAction.scale(to: growScale, duration: duration)
+            grow.timingMode = .easeIn
+            let move = SKAction.moveBy(x: dx, y: dy, duration: duration)
+            let fade = SKAction.fadeOut(withDuration: duration * 0.75)
+            let rotate = SKAction.rotate(byAngle: CGFloat.random(in: -2...2), duration: duration)
+
+            debris.run(SKAction.group([grow, move, fade, rotate,
+                SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])]))
+            container.addChild(debris)
+        }
+
+        // ── Emitter 4: Dust puffs ─────────────────────────────────────────────────
         let dustCount = isBig ? 5 : 3
         for _ in 0..<dustCount {
-            let radius = CGFloat.random(in: 6...14)
+            let radius = CGFloat.random(in: 7...15)
             let dust = SKShapeNode(circleOfRadius: radius)
-            dust.fillColor = themeColor.withAlphaComponent(0.3)
+            dust.fillColor = themeColor.withAlphaComponent(0.28)
             dust.strokeColor = .clear
             dust.alpha = 0.5
 
             let angle = CGFloat.random(in: 0...(2 * .pi))
-            let distance = CGFloat.random(in: 10...30)
-            let duration = Double.random(in: 0.2...0.35)
+            let distance = CGFloat.random(in: 12...35)
+            let duration = Double.random(in: 0.2...0.38)
 
             let move = SKAction.moveBy(x: cos(angle) * distance, y: sin(angle) * distance, duration: duration)
             move.timingMode = .easeOut
-            let grow = SKAction.scale(to: 2.0, duration: duration)
+            let grow = SKAction.scale(to: 2.2, duration: duration)
             let fade = SKAction.fadeOut(withDuration: duration)
 
-            dust.run(SKAction.group([
-                move, grow, fade,
-                SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])
-            ]))
+            dust.run(SKAction.group([move, grow, fade,
+                SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])]))
             container.addChild(dust)
         }
 
-        // --- Emitter 3: Sparkles (additive, upward drift) ---
-        let sparkleCount = isBig ? 5 : 3
+        // ── Emitter 5: Sparkles (additive glow, all directions + upward bias) ─────
+        let sparkleCount = isBig ? 6 : 3
         for _ in 0..<sparkleCount {
-            let sparkle = SKShapeNode(circleOfRadius: CGFloat.random(in: 1.5...4))
+            let sparkle = SKShapeNode(circleOfRadius: CGFloat.random(in: 2...5))
             sparkle.fillColor = .white
             sparkle.strokeColor = .clear
             sparkle.blendMode = .add
             sparkle.alpha = 0.9
 
-            let dx = CGFloat.random(in: -20...20)
-            let dy = CGFloat.random(in: 15...45)  // upward drift
-            let duration = Double.random(in: 0.3...0.5)
+            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let speed = CGFloat.random(in: 20...60)
+            let dx = cos(angle) * speed
+            let dy = sin(angle) * speed + CGFloat.random(in: 10...35) // upward bias
+            let duration = Double.random(in: 0.28...0.5)
 
             let move = SKAction.moveBy(x: dx, y: dy, duration: duration)
             move.timingMode = .easeOut
             let fade = SKAction.fadeOut(withDuration: duration)
-            let shrink = SKAction.scale(to: 0.2, duration: duration)
+            let shrink = SKAction.scale(to: 0.15, duration: duration)
 
-            sparkle.run(SKAction.group([
-                move, fade, shrink,
-                SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])
-            ]))
+            sparkle.run(SKAction.group([move, fade, shrink,
+                SKAction.sequence([SKAction.wait(forDuration: duration), SKAction.removeFromParent()])]))
             container.addChild(sparkle)
         }
 
-        // Clean up container
+        // Clean up container after longest animation
         container.run(SKAction.sequence([
-            SKAction.wait(forDuration: 0.6),
+            SKAction.wait(forDuration: 0.7),
             SKAction.removeFromParent()
         ]))
     }
