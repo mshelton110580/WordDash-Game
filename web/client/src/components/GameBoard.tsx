@@ -395,24 +395,28 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       return;
     }
 
-    const SQUASH_DUR = 80;
-    const POP_DUR = 120;
-    const FADE_DUR = 150;
+    const SQUASH_DUR = 70;
+    const POP_DUR = 110;
+    const FADE_DUR = 130;
 
     // --- SPAWN PARTICLES & SHOCKWAVE at squash→pop transition (once per tile) ---
     const tileKey = `${row},${col}`;
     if (tileElapsed >= SQUASH_DUR && !gameState._particlesSpawnedSet.has(tileKey)) {
       gameState._particlesSpawnedSet.add(tileKey);
       const themeColor = getClearThemeColor(tile.specialType || null);
-      const intensity = tile.specialType ? 'big' : 'normal';
+      // Special tiles → mega intensity for massive debris burst; normal tiles → big for satisfying spread
+      const intensity = tile.specialType === 'bomb' || tile.specialType === 'crossLaser' ? 'mega'
+                      : tile.specialType ? 'big'
+                      : 'big';  // normal tiles also use 'big' for dramatic scatter
       spawnLayeredParticles(gameState, cx, cy, themeColor, intensity);
-      // Shockwave for special tiles
+      // Shockwave for special tiles — larger ring
       if (tile.specialType) {
-        spawnShockwave(gameState, cx, cy, themeColor, 300, 2.0);
+        spawnShockwave(gameState, cx, cy, themeColor, 380, 2.8);
+        spawnShockwave(gameState, cx, cy, '#FFFFFF', 200, 1.4);  // white inner burst
       }
-      // Small shockwave even for normal tiles (subtle ring)
+      // Shockwave even for normal tiles
       if (!tile.specialType) {
-        spawnShockwave(gameState, cx, cy, themeColor, 180, 0.8);
+        spawnShockwave(gameState, cx, cy, themeColor, 220, 1.2);
       }
     }
 
@@ -441,8 +445,8 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
     } else if (tileElapsed < SQUASH_DUR + POP_DUR) {
       // POP + FLASH: scale up rapidly, bright flash overlay
       const t = (tileElapsed - SQUASH_DUR) / POP_DUR;
-      const scale = 1 + t * 0.5;
-      const alpha = Math.max(0, 1 - t * 0.8);
+      const scale = 1 + t * 0.75;  // bigger pop for more impact
+      const alpha = Math.max(0, 1 - t * 0.75);
       ctx.translate(cx, cy);
       ctx.scale(scale, scale);
       ctx.translate(-cx, -cy);
@@ -614,7 +618,14 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
 
   // ===================== MULTI-EMITTER PARTICLES =====================
   function drawParticles(ctx: CanvasRenderingContext2D, shakeX: number, shakeY: number) {
-    for (const p of gameState.particles) {
+    // Sort: draw non-3d particles first, then tile3d on top (painter's order)
+    const sorted = [...gameState.particles].sort((a, b) => {
+      if (a.role === 'tile3d' && b.role !== 'tile3d') return 1;
+      if (a.role !== 'tile3d' && b.role === 'tile3d') return -1;
+      return 0;
+    });
+
+    for (const p of sorted) {
       const alpha = Math.max(0, p.life / p.maxLife);
       const px = p.x + shakeX;
       const py = p.y + shakeY;
@@ -625,35 +636,157 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
         ctx.globalCompositeOperation = 'lighter';
       }
 
-      if (p.shape === 'shard' && p.points && p.points.length >= 3) {
-        // ── SHARD / DEBRIS: irregular polygon with wood-grain stripe ──
-        // Fade: debris grows toward viewer so alpha drops sharply near end
-        const fadeAlpha = p.role === 'debris'
-          ? alpha * alpha * 0.9          // quadratic — punchy fast-fade
-          : alpha * 0.88;
+      if (p.shape === 'tile') {
+        // ── TILE3D: mini board tile flying toward viewer with 3D perspective ──
+        // The w/h have already been scaled by the engine's perspective formula.
+        // Here we render it as a rounded square mini-tile with wood grain + letter.
+        const w = Math.max(4, p.w ?? p.size * 2);
+        const h = Math.max(4, p.h ?? p.size * 2);
+        const cr = Math.min(w, h) * 0.18; // corner radius proportional to size
+
+        // Perspective fade: starts opaque, fades out as it grows huge (close to viewer)
+        const perspZ = p.z || 0;
+        // Alpha: fade when very close (z > 0.7) or at end of life
+        const zFade = perspZ > 0.7 ? Math.max(0, 1 - (perspZ - 0.7) / 0.4) : 1;
+        const fadeAlpha = alpha * zFade * 0.95;
+
         ctx.globalAlpha = fadeAlpha;
         ctx.translate(px, py);
         ctx.rotate(p.rotation);
 
-        // Scale based on current w/h (may have grown via zScale)
-        const scaleW = (p.w || p.size * 2) / (p.points[0] ? Math.abs(p.points[0].x) * 2 || 1 : 1);
-        // Just draw the polygon directly using the stored absolute-coord points
+        // ── Tile face (wood gradient) ──
+        const faceGrad = ctx.createLinearGradient(-w / 2, -h / 2, w * 0.3, h * 0.4);
+        faceGrad.addColorStop(0, '#E8C490');    // highlight
+        faceGrad.addColorStop(0.45, '#C49660'); // mid wood
+        faceGrad.addColorStop(1, '#9B6E42');    // shadow
+        ctx.fillStyle = faceGrad;
+        if (ctx.roundRect) {
+          ctx.beginPath();
+          ctx.roundRect(-w / 2, -h / 2, w, h, cr);
+          ctx.fill();
+        } else {
+          ctx.fillRect(-w / 2, -h / 2, w, h);
+        }
+
+        // ── Wood grain lines (diagonal stripes) ──
+        if (fadeAlpha > 0.2 && w > 8) {
+          ctx.save();
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(-w / 2, -h / 2, w, h, cr);
+          } else {
+            ctx.rect(-w / 2, -h / 2, w, h);
+          }
+          ctx.clip();
+          ctx.globalAlpha = fadeAlpha * 0.28;
+          ctx.strokeStyle = '#8B5E3C';
+          ctx.lineWidth = Math.max(0.5, w * 0.07);
+          // Two diagonal grain lines
+          ctx.beginPath();
+          ctx.moveTo(-w * 0.6, -h * 0.5);
+          ctx.lineTo(w * 0.2, h * 0.5);
+          ctx.moveTo(-w * 0.1, -h * 0.5);
+          ctx.lineTo(w * 0.7, h * 0.5);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // ── Themed color tint overlay (matches explosion type) ──
+        if (p.color3 && fadeAlpha > 0.15 && w > 6) {
+          ctx.globalAlpha = fadeAlpha * 0.22;
+          ctx.fillStyle = p.color3;
+          if (ctx.roundRect) {
+            ctx.beginPath();
+            ctx.roundRect(-w / 2, -h / 2, w, h, cr);
+            ctx.fill();
+          } else {
+            ctx.fillRect(-w / 2, -h / 2, w, h);
+          }
+        }
+
+        // ── Edge shadow (gives depth / 3D look) ──
+        if (fadeAlpha > 0.25) {
+          ctx.globalAlpha = fadeAlpha * 0.55;
+          ctx.strokeStyle = '#3D2010';
+          ctx.lineWidth = Math.max(0.8, w * 0.055);
+          if (ctx.roundRect) {
+            ctx.beginPath();
+            ctx.roundRect(-w / 2, -h / 2, w, h, cr);
+            ctx.stroke();
+          } else {
+            ctx.strokeRect(-w / 2, -h / 2, w, h);
+          }
+        }
+
+        // ── Letter on face (visible while tile is mid-size) ──
+        if (p.letter && w > 12 && w < 90 && fadeAlpha > 0.3) {
+          ctx.globalAlpha = fadeAlpha * 0.85;
+          const fontSize = Math.max(6, w * 0.42);
+          ctx.font = `700 ${fontSize}px 'Space Grotesk', sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          // shadow
+          ctx.fillStyle = 'rgba(0,0,0,0.4)';
+          ctx.fillText(p.letter, 1, 1.5);
+          ctx.fillStyle = '#2D1B0E';
+          ctx.fillText(p.letter, 0, 0);
+        }
+
+        // ── Highlight glint (top-left corner specular) ──
+        if (fadeAlpha > 0.3 && w > 10) {
+          ctx.globalAlpha = fadeAlpha * 0.30;
+          const glintGrad = ctx.createRadialGradient(-w * 0.28, -h * 0.28, 0, -w * 0.28, -h * 0.28, w * 0.4);
+          glintGrad.addColorStop(0, 'rgba(255,255,255,0.9)');
+          glintGrad.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = glintGrad;
+          ctx.beginPath();
+          ctx.arc(-w * 0.28, -h * 0.28, w * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+      } else if (p.shape === 'shard' && p.points && p.points.length >= 3) {
+        // ── SHARD / DEBRIS: irregular polygon with wood-grain stripe ──
+        // For z-perspective shards, fade as they get big (close to viewer)
+        const perspZ = p.z || 0;
+        const zFade = perspZ > 0.8 ? Math.max(0, 1 - (perspZ - 0.8) / 0.3) : 1;
+        const fadeAlpha = p.role === 'debris'
+          ? alpha * alpha * 0.92 * zFade
+          : alpha * 0.90 * zFade;
+        ctx.globalAlpha = fadeAlpha;
+        ctx.translate(px, py);
+        ctx.rotate(p.rotation);
+
+        // Scale the polygon points to match current w/h (grows with perspective)
+        const currentW = p.w || p.size * 2;
+        const currentH = p.h || p.size * 1.5;
+        // The shard points were generated for the original w/h;
+        // we compute scale relative to the original stored sizes
+        // (since original is stored at spawn time and w/h grow each frame, we use them directly)
         ctx.beginPath();
         const pts = p.points;
-        ctx.moveTo(pts[0].x, pts[0].y);
-        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        // The points are in original coords — scale them to current w/h
+        // by computing scale from the max extent of the first point
+        const origExtentX = Math.abs(pts[0].x) || 1;
+        const origExtentY = Math.abs(pts[0].y) || 1;
+        // Use the bounding-box of the original shape to scale
+        const maxX = pts.reduce((m, p2) => Math.max(m, Math.abs(p2.x)), 0.001);
+        const maxY = pts.reduce((m, p2) => Math.max(m, Math.abs(p2.y)), 0.001);
+        const sx = (currentW / 2) / maxX;
+        const sy = (currentH / 2) / maxY;
+        ctx.moveTo(pts[0].x * sx, pts[0].y * sy);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * sx, pts[i].y * sy);
         ctx.closePath();
         ctx.fillStyle = p.color;
         ctx.fill();
 
         // Wood-grain: a diagonal stripe across the shard in color2
-        if (p.color2 && alpha > 0.25) {
+        if (p.color2 && alpha > 0.22) {
           ctx.save();
-          ctx.clip(); // clip to shard shape
-          ctx.globalAlpha = fadeAlpha * 0.45;
+          ctx.clip();
+          ctx.globalAlpha = fadeAlpha * 0.42;
           ctx.strokeStyle = p.color2;
-          ctx.lineWidth = (p.h || p.size) * 0.28;
-          const hw = (p.w || p.size * 2) * 0.7;
+          ctx.lineWidth = (currentH) * 0.26;
+          const hw = currentW * 0.65;
           ctx.beginPath();
           ctx.moveTo(-hw, -hw * 0.3);
           ctx.lineTo(hw, hw * 0.3);
@@ -661,24 +794,23 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
           ctx.restore();
         }
 
-        // Thin dark outline for readability
-        if (alpha > 0.4) {
-          ctx.globalAlpha = fadeAlpha * 0.35;
-          ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-          ctx.lineWidth = 0.8;
+        // Thin dark outline
+        if (alpha > 0.35) {
+          ctx.globalAlpha = fadeAlpha * 0.30;
+          ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+          ctx.lineWidth = 0.9;
           ctx.stroke();
         }
 
       } else if (p.shape === 'rect') {
         // ── CHIP: elongated wood splinter ──
-        ctx.globalAlpha = alpha * 0.88;
+        ctx.globalAlpha = alpha * 0.90;
         ctx.translate(px, py);
         ctx.rotate(p.rotation);
         const w = p.w ?? p.size * 2;
         const h = p.h ?? p.size * 0.7;
         ctx.fillStyle = p.color;
-        // Rounded ends for a splinter look
-        const r = Math.min(h / 2, 2);
+        const r = Math.min(h / 2, 2.5);
         ctx.beginPath();
         if (ctx.roundRect) {
           ctx.roundRect(-w / 2, -h / 2, w, h, r);
@@ -687,10 +819,10 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
         }
         ctx.fill();
 
-        // Highlight edge (lighter stripe down the center of the splinter)
+        // Highlight edge
         if (alpha > 0.35 && h > 2.5) {
-          ctx.globalAlpha = alpha * 0.3;
-          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.globalAlpha = alpha * 0.32;
+          ctx.fillStyle = 'rgba(255,255,255,0.65)';
           ctx.fillRect(-w / 2 + 1, -h * 0.1, w - 2, h * 0.25);
         }
 
@@ -699,24 +831,22 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
         ctx.fillStyle = p.color;
         ctx.beginPath();
         const radius = p.role === 'dust'
-          ? p.size * (1 + (1 - alpha) * 0.9) // dust expands as it fades
+          ? p.size * (1 + (1 - alpha) * 1.1) // dust expands more as it fades
           : p.size * (0.4 + alpha * 0.6);      // sparkles shrink
-        ctx.globalAlpha = alpha * (p.role === 'dust' ? 0.45 : 0.9);
+        ctx.globalAlpha = alpha * (p.role === 'dust' ? 0.42 : 0.92);
         ctx.arc(px, py, Math.max(0.5, radius), 0, Math.PI * 2);
         ctx.fill();
 
         // Sparkle: cross-hair glow (+) and outer halo
-        if (p.role === 'sparkle' && alpha > 0.25) {
-          // Outer halo
-          ctx.globalAlpha = alpha * 0.35;
+        if (p.role === 'sparkle' && alpha > 0.22) {
+          ctx.globalAlpha = alpha * 0.32;
           ctx.beginPath();
-          ctx.arc(px, py, Math.max(0.5, radius * 2.8), 0, Math.PI * 2);
+          ctx.arc(px, py, Math.max(0.5, radius * 3.2), 0, Math.PI * 2);
           ctx.fill();
-          // Cross-hair arms
-          ctx.globalAlpha = alpha * 0.7;
+          ctx.globalAlpha = alpha * 0.72;
           ctx.strokeStyle = p.color;
-          ctx.lineWidth = 0.8;
-          const arm = radius * 2.2;
+          ctx.lineWidth = 0.9;
+          const arm = radius * 2.4;
           ctx.beginPath();
           ctx.moveTo(px - arm, py); ctx.lineTo(px + arm, py);
           ctx.moveTo(px, py - arm); ctx.lineTo(px, py + arm);
