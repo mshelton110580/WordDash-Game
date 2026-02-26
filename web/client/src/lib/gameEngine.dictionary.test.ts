@@ -27,14 +27,6 @@ describe('Collins validation + Oxford hint dictionary', () => {
         text: async () => ['HOUSE', 'CAT', 'TREE', 'DOG', 'CLOUD'].join('\n'),
       } as Response;
     }
-
-    if (url.includes('common_words.txt')) {
-      return {
-        ok: true,
-        text: async () => ['HOUSE', 'CAT', 'TREE', 'DOG', 'CLOUD'].join('\n'),
-      } as Response;
-    }
-
     return {
       ok: false,
       text: async () => '',
