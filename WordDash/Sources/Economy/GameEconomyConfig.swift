@@ -47,6 +47,7 @@ struct GameEconomyConfig {
         "laser": 100,
         "crossLaser": 150,
         "mine": 125,
+        "link": 400,
     ]
 
     // MARK: - Continue System

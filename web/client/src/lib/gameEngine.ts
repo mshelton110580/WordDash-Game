@@ -35,7 +35,7 @@ export function randomLetter(): string {
 }
 
 // --- Tile types ---
-export type SpecialType = 'bomb' | 'laser' | 'crossLaser' | 'wildcard' | 'mine' | null;
+export type SpecialType = 'bomb' | 'laser' | 'crossLaser' | 'wildcard' | 'mine' | 'link' | null;
 export type IceState = 'none' | 'intact' | 'cracked';
 
 export interface Tile {
@@ -139,9 +139,16 @@ export function areAdjacent(a: Tile, b: Tile): boolean {
   return dr <= 1 && dc <= 1;
 }
 
-// --- Word list (loaded async) ---
-let wordSet: Set<string> = new Set();
+// --- Dictionary sources (loaded async) ---
+// Gameplay validation uses Collins dictionary.
+// Hint generation uses Oxford 3000 list.
+let collinsWordSet: Set<string> = new Set();
+let oxfordHintWordSet: Set<string> = new Set();
 let wordListLoaded = false;
+
+const DEFAULT_OXFORD_HINT_WORDS = ['THE','AND','FOR','ARE','BUT','NOT','YOU','ALL','CAN','HER','WAS','ONE','OUR','OUT','DAY','HAD','HAS','HIS','HOW','MAN','NEW','NOW','OLD','SEE','WAY','WHO','BOY','DID','GET','HIM','LET','SAY','SHE','TOO','USE','CAT','DOG','RUN','SIT','TOP','RED','BIG','FUN','SUN','CUP','BUS','MAP','PEN','TEN','WIN','AIR','EAT','FAR','HOT','OWN','PAY','AGE','AGO','BAD','BED','CUT','END','FEW','GOT','HIT','JOB','KEY','LAW','LOT','LOW','MET','OIL','PUT','RAN','SET','SIX','TRY','TWO','WAR','YES','YET','ART','BAR','BIT','BOX','CAR','DIE','EAR','EYE','FIT','GAS','ICE','LAY','LEG','LIE','LOG','PIN','RAW','ROW','RUB','SEA','SKI','TAX','TIE','WET','WORD','GAME','PLAY','TILE','STAR','FIRE','GOLD','BLUE','DARK','FAST','SLOW','JUMP','FLIP','SPIN','SWAP','BURN','COOL','WARM','COLD','HEAT','RAIN','SNOW','WIND','WAVE','ROCK','SAND','IRON','WOOD','TREE','LEAF','ROOT','SEED','GROW','ROSE','POND','LAKE','POOL','DEEP','WIDE','LONG','TALL','THIN','FLAT','SOFT','HARD','LOUD','CALM','WILD','RICH','POOR','FULL','OPEN','LOCK','FREE','LINK','LOOP','RING','BAND','ROPE','WIRE','CHAIN','FENCE','WALL','GATE','DOOR','PATH','ROAD','LANE','TRACK','ROUTE','BRIDGE','TOWER','HOUSE','SCHOOL','STORE','MARKET','GARDEN','FOREST','DESERT','ISLAND','OCEAN','RIVER','CREEK','BROOK','STREAM'];
+// Used only when Collins files are unavailable.
+const DEFAULT_COLLINS_FALLBACK_WORDS = [...DEFAULT_OXFORD_HINT_WORDS, 'AAHED', 'AARDVARK', 'ZOO', 'ZOOLOGIST'];
 
 // Simple profanity block list
 const profanitySet: Set<string> = new Set([
@@ -153,25 +160,51 @@ export function isWordListLoaded(): boolean {
   return wordListLoaded;
 }
 
+function parseUpperWords(text: string): string[] {
+  return text
+    .split('\n')
+    .map(w => w.trim().toUpperCase())
+    .filter(w => w.length >= 3 && /^[A-Z]+$/.test(w));
+}
+
 export async function loadWordList(): Promise<void> {
+  // Reset sets so repeated loads do not retain stale dictionary data.
+  collinsWordSet = new Set();
+  oxfordHintWordSet = new Set();
+
   try {
-    // Try local first, then CDN fallback
-    let resp: Response;
+    // Collins dictionary for gameplay validation.
+    let collinsResp: Response;
     try {
-      resp = await fetch('/wordlist.txt');
-      if (!resp.ok) throw new Error('Local fetch failed');
+      collinsResp = await fetch('/wordlist.txt');
+      if (!collinsResp.ok) throw new Error('Local Collins fetch failed');
     } catch {
-      resp = await fetch('https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/FwtwNksZrpzYsGNR.txt');
+      collinsResp = await fetch('https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/FwtwNksZrpzYsGNR.txt');
     }
-    const text = await resp.text();
-    const words = text.split('\n').map(w => w.trim().toUpperCase()).filter(w => w.length >= 3);
-    wordSet = new Set(words);
+
+    collinsWordSet = new Set(parseUpperWords(await collinsResp.text()));
+
+    // Oxford 3000 for hints only (no legacy common_words fallback).
+    try {
+      const oxfordResp = await fetch('/oxford3000.txt');
+      if (oxfordResp.ok) {
+        const oxfordWords = parseUpperWords(await oxfordResp.text());
+        oxfordHintWordSet = new Set(oxfordWords.filter(w => collinsWordSet.has(w)));
+      }
+    } catch {
+      // ignore optional hint dictionary load failure
+    }
+
+    if (oxfordHintWordSet.size === 0) {
+      oxfordHintWordSet = new Set(DEFAULT_OXFORD_HINT_WORDS.filter(w => collinsWordSet.has(w)));
+    }
+
     wordListLoaded = true;
-    console.log(`Loaded ${wordSet.size} words`);
+    console.log(`Loaded Collins words=${collinsWordSet.size}, Oxford hints=${oxfordHintWordSet.size}`);
   } catch (e) {
-    console.error('Failed to load word list, using fallback', e);
-    const common = ['THE','AND','FOR','ARE','BUT','NOT','YOU','ALL','CAN','HER','WAS','ONE','OUR','OUT','DAY','HAD','HAS','HIS','HOW','MAN','NEW','NOW','OLD','SEE','WAY','WHO','BOY','DID','GET','HIM','LET','SAY','SHE','TOO','USE','CAT','DOG','RUN','SIT','TOP','RED','BIG','FUN','SUN','CUP','BUS','MAP','PEN','TEN','WIN','AIR','EAT','FAR','HOT','OWN','PAY','AGE','AGO','BAD','BED','CUT','END','FEW','GOT','GUN','HIT','JOB','KEY','LAW','LOT','LOW','MET','OIL','PUT','RAN','SET','SIX','TRY','TWO','WAR','YES','YET','ART','BAR','BIT','BOX','CAR','DIE','EAR','EYE','FIT','GAS','GOD','ICE','ILL','LAY','LEG','LIE','LOG','MIX','NOR','ODD','PIN','RAW','ROW','RUB','SEA','SKI','TAX','TIE','WET','WORD','DASH','GAME','PLAY','TILE','BOMB','STAR','FIRE','GOLD','BLUE','GLOW','DARK','FAST','SLOW','JUMP','FLIP','SPIN','SWAP','WIPE','MELT','BURN','COOL','WARM','COLD','HEAT','RAIN','SNOW','WIND','WAVE','ROCK','SAND','DUST','RUST','IRON','WOOD','TREE','LEAF','ROOT','SEED','GROW','VINE','ROSE','LILY','FERN','MOSS','POND','LAKE','POOL','WELL','DEEP','WIDE','LONG','TALL','THIN','FLAT','SOFT','HARD','LOUD','CALM','WILD','TAME','BOLD','MILD','KEEN','DULL','RICH','POOR','FULL','VOID','OPEN','SHUT','LOCK','FREE','BIND','LINK','KNOT','LOOP','RING','BAND','CORD','ROPE','WIRE','CHAIN','FENCE','WALL','GATE','DOOR','PATH','ROAD','LANE','TRAIL','TRACK','ROUTE','BRIDGE','TOWER','HOUSE','CABIN','LODGE','MANOR','CASTLE','PALACE','TEMPLE','CHURCH','SCHOOL','STORE','MARKET','GARDEN','FOREST','DESERT','ISLAND','OCEAN','RIVER','CREEK','BROOK','STREAM'];
-    wordSet = new Set(common.map(w => w.toUpperCase()));
+    console.error('Failed to load Collins dictionary, using bundled fallback list', e);
+    collinsWordSet = new Set(DEFAULT_COLLINS_FALLBACK_WORDS.map(w => w.toUpperCase()));
+    oxfordHintWordSet = new Set(DEFAULT_OXFORD_HINT_WORDS.map(w => w.toUpperCase()).filter(w => collinsWordSet.has(w)));
     wordListLoaded = true;
   }
 }
@@ -179,7 +212,12 @@ export async function loadWordList(): Promise<void> {
 export function isValidWord(word: string): boolean {
   const upper = word.toUpperCase();
   if (profanitySet.has(upper)) return false;
-  return wordSet.has(upper);
+  return collinsWordSet.has(upper);
+}
+
+function isHintWord(word: string): boolean {
+  const upper = word.toUpperCase();
+  return oxfordHintWordSet.has(upper) && upper.length >= 3 && upper.length <= 8;
 }
 
 // --- Laser effect tracking for visual rendering ---
@@ -216,7 +254,7 @@ export interface GameState {
   // Timer starts on first interaction
   timerStarted: boolean;
   // Power-ups (all 5 from spec + shuffle)
-  powerUps: { hint: number; bomb: number; laser: number; crossLaser: number; mine: number; shuffle: number };
+  powerUps: { hint: number; bomb: number; laser: number; crossLaser: number; mine: number; shuffle: number; link: number };
   activePowerUp: string | null;
   // Hint path (highlighted for 3 seconds)
   hintPath: Tile[];
@@ -240,6 +278,12 @@ export interface GameState {
   // Real-time coin tracking during gameplay
   coinsEarnedThisLevel: number;
   coinFlyEvents: CoinFlyEvent[];
+  scoreFlyEvents: CoinFlyEvent[];
+  chainMode: ChainModeState;
+  uiMessage: string;
+  uiMessageTimer: number;
+  chainResolutionFx: ChainResolutionFx | null;
+  refillCountSinceLinkSpawn: number;
   // Deferred clear system: tiles animate before removal
   pendingClear: boolean; // true while clear animation is playing
   pendingClearTimestamp: number; // when the clear started (Date.now())
@@ -247,6 +291,50 @@ export interface GameState {
   pendingGravity: boolean; // gravity+refill needs to run after flush
   _pendingSpecialSpawn: { row: number; col: number; specialType: SpecialType } | null;
   _particlesSpawnedSet: Set<string>; // tracks which clearing tiles already spawned particles
+}
+
+export interface ChainModeState {
+  chainActive: boolean;
+  linkedTiles: Set<string>;
+  chainWordCount: number;
+  chainBasePoints: number;
+  pendingWord: PendingWord | null;
+}
+
+export interface PendingWord {
+  coords: { row: number; col: number }[];
+  word: string;
+}
+
+export interface ChainResolutionFx {
+  timestamp: number;
+  multiplier: number;
+  words: number;
+  points: number;
+  coins: number;
+}
+
+export const LinkModeConfig = {
+  pointsPerCoin: 250,
+  linkSpawnChancePerRefill: 0.05,
+  linkSpawnCooldownDrops: 10,
+  maxLinkSpawnsPerRefill: 1,
+  scoreFlyThreshold: 1000,
+  maxFlyFragments: 25,
+  flyDurationMs: 750,
+};
+
+const keyFor = (row: number, col: number) => `${row},${col}`;
+
+export function getChainMultiplier(chainWordCount: number, explosiveEnded = false): number {
+  const effective = explosiveEnded ? Math.max(1, chainWordCount - 1) : chainWordCount;
+  if (effective <= 1) return 1;
+  if (effective === 2) return 2;
+  if (effective === 3) return 3;
+  if (effective === 4) return 4;
+  if (effective === 5) return 6;
+  if (effective === 6) return 8;
+  return 10;
 }
 
 export interface CoinFlyEvent {
@@ -349,7 +437,7 @@ export function createGameState(level: LevelConfig): GameState {
     showWordPopup: false,
     popupTimer: 0,
     timerStarted: false,
-    powerUps: { hint: 3, bomb: 2, laser: 2, crossLaser: 1, mine: 2, shuffle: 2 }, // defaults, overridden by economy loadInventory in Home.tsx
+    powerUps: { hint: 3, bomb: 2, laser: 2, crossLaser: 1, mine: 2, shuffle: 2, link: 0 }, // defaults, overridden by economy loadInventory in Home.tsx
     activePowerUp: null,
     hintPath: [],
     hintTimer: 0,
@@ -365,6 +453,18 @@ export function createGameState(level: LevelConfig): GameState {
     maxCascadeReached: 0,
     coinsEarnedThisLevel: 0,
     coinFlyEvents: [],
+    scoreFlyEvents: [],
+    chainMode: {
+      chainActive: false,
+      linkedTiles: new Set<string>(),
+      chainWordCount: 0,
+      chainBasePoints: 0,
+      pendingWord: null,
+    },
+    uiMessage: '',
+    uiMessageTimer: 0,
+    chainResolutionFx: null,
+    refillCountSinceLinkSpawn: 0,
     pendingClear: false,
     pendingClearTimestamp: 0,
     pendingClearDuration: 0,
@@ -453,39 +553,15 @@ export function flushPendingClears(state: GameState) {
   state._particlesSpawnedSet.clear();
 }
 
-export function submitWord(state: GameState): { valid: boolean; score: number; word: string } {
-  const path = state.selectedPath;
-  if (path.length < 3) return { valid: false, score: 0, word: '' };
-
-  const word = getWordFromPath(path);
-  if (!isValidWord(word)) {
-    // Trigger shake animation
-    triggerScreenShake(state, 4, 12); // invalid word shake
-    state.selectedPath = [];
-    return { valid: false, score: 0, word };
-  }
-
-  // Mark timer as started on first valid word
-  state.timerStarted = true;
-
-  // Clear hint path on successful word submission
-  state.hintPath = [];
-  state.hintTimer = 0;
-
-  state.wordSubmitCount++;
-
-  // Calculate score — letter multipliers (2x/3x) multiply together across the word
-  // e.g. a word with a 2x tile and a 3x tile gets a 6x combined multiplier
-  const rawScore = path.reduce((s, t) => {
-    if (t.specialType === 'wildcard') return s + 2;
-    const letterVal = LETTER_VALUES[t.letter] || 2;
-    return s + letterVal;
+function calculateWordScore(state: GameState, path: Tile[], word: string): number {
+  const rawScore = path.reduce((sum, t) => {
+    if (t.specialType === 'wildcard') return sum + 2;
+    return sum + (LETTER_VALUES[t.letter] || 2);
   }, 0);
   const combinedLetterMult = path.reduce((m, t) => m * (t.letterMultiplier || 1), 1);
   const baseScore = rawScore * combinedLetterMult;
   const lenMult = lengthMultiplier(path.length);
 
-  // Streak
   const now = Date.now();
   if (state.lastWordTime && (now - state.lastWordTime) < 4000) {
     state.streakMultiplier = Math.min(3.0, state.streakMultiplier + 0.2);
@@ -493,18 +569,86 @@ export function submitWord(state: GameState): { valid: boolean; score: number; w
     state.streakMultiplier = 1.0;
   }
   state.lastWordTime = now;
-  if (state.streakMultiplier > state.maxStreakReached) {
-    state.maxStreakReached = state.streakMultiplier;
-  }
+  if (state.streakMultiplier > state.maxStreakReached) state.maxStreakReached = state.streakMultiplier;
 
-  // Diminishing
   const usage = (state.wordUsage[word.toUpperCase()] || 0) + 1;
   state.wordUsage[word.toUpperCase()] = usage;
   const dimMult = diminishingMultiplier(usage);
+  return Math.round(baseScore * lenMult * state.streakMultiplier * dimMult);
+}
 
-  const totalScore = Math.round(baseScore * lenMult * state.streakMultiplier * dimMult);
+function markDeferredClear(state: GameState, path: Tile[]) {
+  const totalAnimTiles = path.length + state.explosionClears.length;
+  const staggerMs = Math.min(totalAnimTiles * 25, 200);
+  const animDuration = staggerMs + 350;
+  state.pendingClear = true;
+  state.pendingClearTimestamp = Date.now();
+  state.pendingClearDuration = animDuration;
+  state.pendingGravity = true;
+}
 
-  state.score += totalScore;
+function resolveChain(state: GameState, explosiveEnded = false) {
+  const cm = state.chainMode;
+  if (!cm.chainActive || cm.linkedTiles.size === 0 || cm.chainWordCount <= 0) return;
+
+  const multiplier = getChainMultiplier(cm.chainWordCount, explosiveEnded);
+  const points = cm.chainBasePoints * multiplier;
+  const coins = Math.floor(points / LinkModeConfig.pointsPerCoin);
+
+  state.score += points;
+  state.coinsEarnedThisLevel += coins;
+  state.chainResolutionFx = {
+    timestamp: Date.now(),
+    multiplier,
+    words: cm.chainWordCount,
+    points,
+    coins,
+  };
+
+  const linkedCoords: { row: number; col: number }[] = [];
+  cm.linkedTiles.forEach((key) => {
+    const [r, c] = key.split(',').map(Number);
+    linkedCoords.push({ row: r, col: c });
+  });
+
+  for (const coord of linkedCoords) {
+    if (state.board[coord.row]?.[coord.col]) {
+      state.explosionClears.push({ row: coord.row, col: coord.col, specialType: 'link' });
+      clearTile(state, coord.row, coord.col);
+    }
+  }
+
+  if (coins > 0 && linkedCoords.length > 0) {
+    const center = linkedCoords[Math.floor(linkedCoords.length / 2)];
+    state.coinFlyEvents.push({
+      id: `chain-coin-${Date.now()}-${Math.random()}`,
+      amount: coins,
+      fromRow: center.row,
+      fromCol: center.col,
+      timestamp: Date.now(),
+    });
+  }
+
+  if (points >= LinkModeConfig.scoreFlyThreshold && linkedCoords.length > 0) {
+    const center = linkedCoords[Math.floor(linkedCoords.length / 2)];
+    state.scoreFlyEvents.push({
+      id: `chain-score-${Date.now()}-${Math.random()}`,
+      amount: points,
+      fromRow: center.row,
+      fromCol: center.col,
+      timestamp: Date.now(),
+    });
+  }
+
+  markDeferredClear(state, linkedCoords.map(c => state.board[c.row]?.[c.col]).filter(Boolean) as Tile[]);
+
+  cm.chainActive = false;
+  cm.linkedTiles.clear();
+  cm.chainWordCount = 0;
+  cm.chainBasePoints = 0;
+}
+
+function applyNonChainWord(state: GameState, path: Tile[], word: string, totalScore: number): { valid: boolean; score: number; word: string } {
   state.lastWordScore = totalScore;
   state.lastWord = word;
   state.showWordPopup = true;
@@ -514,139 +658,148 @@ export function submitWord(state: GameState): { valid: boolean; score: number; w
   state.mineDetonations = [];
   state.explosionClears = [];
 
-  // Real-time coin earning: award coins for long words immediately
-  let wordCoins = 0;
-  const wordLen = word.length;
-  if (wordLen >= 8) wordCoins += 6;
-  else if (wordLen >= 7) wordCoins += 4;
-  else if (wordLen >= 6) wordCoins += 2;
-  // Streak milestone coins (check if we just crossed a threshold)
-  if (state.streakMultiplier >= 3.0 && state.streakMultiplier - 0.2 < 3.0) wordCoins += 20;
-  else if (state.streakMultiplier >= 2.5 && state.streakMultiplier - 0.2 < 2.5) wordCoins += 10;
-  else if (state.streakMultiplier >= 2.0 && state.streakMultiplier - 0.2 < 2.0) wordCoins += 5;
-  if (wordCoins > 0) {
-    state.coinsEarnedThisLevel += wordCoins;
-    const lastTile = path[path.length - 1];
-    state.coinFlyEvents.push({
-      id: `coin-${Date.now()}-${Math.random()}`,
-      amount: wordCoins,
-      fromRow: lastTile.row,
-      fromCol: lastTile.col,
-      timestamp: Date.now(),
-    });
-  }
+  if (state.level.goalType === 'clearIceMoves') state.movesRemaining--;
+  for (const tile of path) hitIce(state, tile.row, tile.col);
 
-  // Decrement moves for clearIceMoves
-  if (state.level.goalType === 'clearIceMoves') {
-    state.movesRemaining--;
-  }
-
-  // Ice mechanic: tiles in the path that are being cleared hit their own ice
-  // AND clearing a tile hits ice on that position
-  for (const tile of path) {
-    hitIce(state, tile.row, tile.col);
-  }
-
-  // Check for special tile spawn
   const specialType = specialTileForWordLength(path.length);
-
-  // Collect special tile effects to trigger
   const specialEffects: { type: SpecialType; tile: Tile }[] = [];
   for (const tile of path) {
     const boardTile = state.board[tile.row]?.[tile.col];
-    if (boardTile?.specialType && boardTile.specialType !== 'wildcard') {
+    if (boardTile?.specialType && boardTile.specialType !== 'wildcard' && boardTile.specialType !== 'link') {
       specialEffects.push({ type: boardTile.specialType, tile: boardTile });
     }
   }
 
-  // Clear tiles in path
-  for (const tile of path) {
-    clearTile(state, tile.row, tile.col);
+  for (const tile of path) clearTile(state, tile.row, tile.col);
+
+  const explosiveEnded = specialEffects.some(e => e.type === 'bomb' || e.type === 'laser' || e.type === 'crossLaser' || e.type === 'mine');
+  if (explosiveEnded && state.chainMode.chainActive) {
+    resolveChain(state, true);
   }
 
-  // Check for dual-bomb board explosion: 2+ bombs in the word path
   const bombCount = specialEffects.filter(e => e.type === 'bomb').length;
   if (bombCount >= 2) {
     state.cascadeStep++;
     triggerBoardExplosion(state);
-    state.score += cascadeBonus(state.cascadeStep) * 3; // Big bonus for board clear
-    // Also trigger non-bomb effects
+    state.score += cascadeBonus(state.cascadeStep) * 3;
     for (const effect of specialEffects) {
-      if (effect.type !== 'bomb') {
+      if (effect.type === 'laser') {
         state.cascadeStep++;
-        if (effect.type === 'laser') {
-          triggerLaser(state, effect.tile, path);
-        } else if (effect.type === 'crossLaser') {
-          triggerCrossLaser(state, effect.tile);
-        } else if (effect.type === 'mine') {
-          triggerMine(state, effect.tile.row, effect.tile.col);
-        }
+        triggerLaser(state, effect.tile, path);
+        state.score += cascadeBonus(state.cascadeStep);
+      } else if (effect.type === 'crossLaser') {
+        state.cascadeStep++;
+        triggerCrossLaser(state, effect.tile);
+        state.score += cascadeBonus(state.cascadeStep);
+      } else if (effect.type === 'mine') {
+        state.cascadeStep++;
+        triggerMine(state, effect.tile.row, effect.tile.col);
         state.score += cascadeBonus(state.cascadeStep);
       }
     }
   } else {
-    // Normal special tile effects (cascade step 1+)
     for (const effect of specialEffects) {
       state.cascadeStep++;
-      if (effect.type === 'bomb') {
-        triggerBomb(state, effect.tile);
-      } else if (effect.type === 'laser') {
-        triggerLaser(state, effect.tile, path);
-      } else if (effect.type === 'crossLaser') {
-        triggerCrossLaser(state, effect.tile);
-      } else if (effect.type === 'mine') {
-        triggerMine(state, effect.tile.row, effect.tile.col);
-      }
-      // Award cascade bonus
+      if (effect.type === 'bomb') triggerBomb(state, effect.tile);
+      else if (effect.type === 'laser') triggerLaser(state, effect.tile, path);
+      else if (effect.type === 'crossLaser') triggerCrossLaser(state, effect.tile);
+      else if (effect.type === 'mine') triggerMine(state, effect.tile.row, effect.tile.col);
       state.score += cascadeBonus(state.cascadeStep);
     }
   }
 
-  // Process mine detonations (chain reactions)
   processMineDetonations(state);
+  if (state.cascadeStep > state.maxCascadeReached) state.maxCascadeReached = state.cascadeStep;
 
-  // Track max cascade reached
-  if (state.cascadeStep > state.maxCascadeReached) {
-    state.maxCascadeReached = state.cascadeStep;
-  }
-
-  // Spawn special tile at last position if earned — store for later
   state._pendingSpecialSpawn = null;
   if (specialType && path.length > 0) {
     const lastTile = path[path.length - 1];
-    state._pendingSpecialSpawn = {
-      row: lastTile.row,
-      col: lastTile.col,
-      specialType,
-    };
+    state._pendingSpecialSpawn = { row: lastTile.row, col: lastTile.col, specialType };
   }
 
-  // DEFERRED: Don't apply gravity/refill yet — let animations play first
-  // Mark tiles as "isClearing" so the renderer can show squash+pop
-  // The tiles stay on the board visually during the animation
-  for (let r = 0; r < state.boardSize; r++) {
-    for (let c = 0; c < state.boardSize; c++) {
-      const tile = state.board[r]?.[c];
-      if (tile && tile.isClearing) {
-        // Tile was marked for clearing by clearTile — keep it on board for animation
-        // It will be removed by flushPendingClears
+  markDeferredClear(state, path);
+  state.selectedPath = [];
+  return { valid: true, score: totalScore, word };
+}
+
+export function submitWord(state: GameState): { valid: boolean; score: number; word: string } {
+  const path = state.selectedPath;
+  if (path.length < 3) return { valid: false, score: 0, word: '' };
+
+  const word = getWordFromPath(path);
+  if (!isValidWord(word)) {
+    triggerScreenShake(state, 4, 12);
+    state.selectedPath = [];
+    return { valid: false, score: 0, word };
+  }
+
+  state.timerStarted = true;
+  state.hintPath = [];
+  state.hintTimer = 0;
+  state.wordSubmitCount++;
+
+  const totalScore = calculateWordScore(state, path, word);
+  const hasOverlap = path.some(t => state.chainMode.linkedTiles.has(keyFor(t.row, t.col)));
+  const hasLinkTile = path.some(t => t.specialType === 'link');
+
+  if (state.chainMode.chainActive && !hasOverlap) {
+    state.chainMode.pendingWord = {
+      word,
+      coords: path.map(t => ({ row: t.row, col: t.col })),
+    };
+
+    resolveChain(state, false);
+    if (state.pendingClear) flushPendingClears(state);
+
+    const pending = state.chainMode.pendingWord;
+    state.chainMode.pendingWord = null;
+    if (pending) {
+      const reboundPath: Tile[] = [];
+      for (const c of pending.coords) {
+        const tile = state.board[c.row]?.[c.col];
+        if (!tile) {
+          state.selectedPath = [];
+          state.uiMessage = 'Board Shifted';
+          state.uiMessageTimer = 90;
+          return { valid: true, score: 0, word: pending.word };
+        }
+        reboundPath.push(tile);
       }
+      const reboundWord = getWordFromPath(reboundPath);
+      if (!isValidWord(reboundWord)) {
+        state.selectedPath = [];
+        state.uiMessage = 'Board Shifted';
+        state.uiMessageTimer = 90;
+        return { valid: true, score: 0, word: pending.word };
+      }
+      state.selectedPath = reboundPath;
+      return applyNonChainWord(state, reboundPath, reboundWord, calculateWordScore(state, reboundPath, reboundWord));
     }
   }
 
-  // Calculate animation duration based on path length + explosion count
-  const totalAnimTiles = path.length + state.explosionClears.length;
-  const staggerMs = Math.min(totalAnimTiles * 25, 200); // stagger cap
-  const animDuration = staggerMs + 350; // stagger + squash+pop+fade time
+  if (hasLinkTile || state.chainMode.chainActive) {
+    state.chainMode.chainActive = true;
+    state.chainMode.chainWordCount++;
+    state.chainMode.chainBasePoints += totalScore;
+    for (const tile of path) state.chainMode.linkedTiles.add(keyFor(tile.row, tile.col));
 
-  state.pendingClear = true;
-  state.pendingClearTimestamp = Date.now();
-  state.pendingClearDuration = animDuration;
-  state.pendingGravity = true;
+    state.lastWordScore = totalScore;
+    state.lastWord = word;
+    state.showWordPopup = true;
+    state.popupTimer = 60;
+    state.wordsFound.push(word);
+    state.selectedPath = [];
+    return { valid: true, score: totalScore, word };
+  }
 
-  state.selectedPath = [];
+  return applyNonChainWord(state, path, word, totalScore);
+}
 
-  return { valid: true, score: totalScore, word };
+export function forceResolveChainOnTimer(state: GameState) {
+  if (!state.chainMode.chainActive) return;
+  state.explosionClears = [];
+  resolveChain(state, false);
+  checkWinCondition(state);
 }
 
 // Award base letter points for a tile destroyed by explosion (no multiplier bonuses)
@@ -795,8 +948,18 @@ export function applyGravity(state: GameState) {
 }
 
 export function refillBoard(state: GameState) {
-  // Only spawn multiplier tiles every 3rd+ word to avoid flooding the board
   const canSpawnMultipliers = state.wordSubmitCount >= 2 && state.wordSubmitCount % 3 === 0;
+  const canSpawnLink = state.refillCountSinceLinkSpawn >= LinkModeConfig.linkSpawnCooldownDrops;
+  const shouldRollLink = canSpawnLink && Math.random() < LinkModeConfig.linkSpawnChancePerRefill;
+  const nulls: { row: number; col: number }[] = [];
+  for (let c = 0; c < state.boardSize; c++) {
+    for (let r = state.boardSize - 1; r >= 0; r--) {
+      if (state.board[r][c] === null) nulls.push({ row: r, col: c });
+    }
+  }
+  const linkTarget = shouldRollLink && nulls.length > 0
+    ? nulls[Math.floor(Math.random() * nulls.length)]
+    : null;
 
   for (let c = 0; c < state.boardSize; c++) {
     for (let r = state.boardSize - 1; r >= 0; r--) {
@@ -806,20 +969,23 @@ export function refillBoard(state: GameState) {
         tile.isFalling = true;
         tile.animProgress = 0;
 
-        // Random chance for double/triple letter multiplier on new tiles
+        if (linkTarget && linkTarget.row === r && linkTarget.col === c) {
+          tile.specialType = 'link';
+          state.refillCountSinceLinkSpawn = 0;
+        }
+
         if (canSpawnMultipliers && !tile.specialType) {
           const roll = Math.random();
-          if (roll < 0.06) {
-            tile.letterMultiplier = 3; // ~6% chance for triple
-          } else if (roll < 0.18) {
-            tile.letterMultiplier = 2; // ~12% chance for double
-          }
+          if (roll < 0.06) tile.letterMultiplier = 3;
+          else if (roll < 0.18) tile.letterMultiplier = 2;
         }
 
         state.board[r][c] = tile;
       }
     }
   }
+
+  if (!linkTarget) state.refillCountSinceLinkSpawn++;
 }
 
 export function checkWinCondition(state: GameState) {
@@ -936,6 +1102,17 @@ export function useMinePowerUp(state: GameState) {
   state.activePowerUp = null;
 }
 
+
+export function useLinkPowerUp(state: GameState) {
+  if (state.powerUps.link <= 0) return;
+  const pos = findRandomNormalTile(state);
+  if (!pos) return;
+  state.powerUps.link--;
+  state.timerStarted = true;
+  state.board[pos.row][pos.col]!.specialType = 'link';
+  state.activePowerUp = null;
+}
+
 // --- Hint system: find a valid word on the board ---
 export function findHintPath(state: GameState): Tile[] {
   const size = state.boardSize;
@@ -946,7 +1123,7 @@ export function findHintPath(state: GameState): Tile[] {
   function dfs(path: Tile[], visited: Set<string>) {
     if (path.length >= 3) {
       const word = path.map(t => t.letter).join('');
-      if (isValidWord(word) && path.length > bestPath.length) {
+      if (isHintWord(word) && path.length > bestPath.length) {
         bestPath = [...path];
         if (bestPath.length >= 5) return; // Good enough
       }
@@ -1010,6 +1187,7 @@ export function getClearThemeColor(specialType: SpecialType): string {
     case 'crossLaser': return '#B266FF'; // purple
     case 'wildcard': return '#FFD700'; // gold
     case 'mine': return '#FF4444';    // sharp red
+    case 'link': return '#22d3ee';    // cyan link
     default: return '#D4A574';         // warm wood/dust
   }
 }

@@ -53,6 +53,7 @@ export const GameEconomyConfig = {
     laser: 100,
     crossLaser: 150,
     mine: 125,
+    link: 400,
   } as Record<string, number>,
 
   // Continue system
@@ -452,6 +453,7 @@ export interface PowerupInventory {
   laser: number;
   crossLaser: number;
   mine: number;
+  link: number;
 }
 
 export function loadInventory(): PowerupInventory {
@@ -465,13 +467,14 @@ export function loadInventory(): PowerupInventory {
         laser: parsed.laser ?? 2,
         crossLaser: parsed.crossLaser ?? 1,
         mine: parsed.mine ?? 2,
+        link: parsed.link ?? 0,
       };
     } catch {
       // corrupted
     }
   }
   // Default starting inventory
-  return { hint: 3, bomb: 2, laser: 2, crossLaser: 1, mine: 2 };
+  return { hint: 3, bomb: 2, laser: 2, crossLaser: 1, mine: 2, link: 0 };
 }
 
 export function saveInventory(inv: PowerupInventory): void {
