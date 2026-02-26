@@ -22,6 +22,7 @@ import {
   isValidWord,
   isWordListLoaded,
   flushPendingClears,
+  LinkModeConfig,
 } from '@/lib/gameEngine';
 
 interface GameBoardProps {
@@ -42,6 +43,7 @@ const TILE_ASSETS: Record<string, string> = {
   laser: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/MfReTvSbtccVftXr.png',
   crossLaser: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/wdZSZEIJuSGZKWNk.png',
   mine: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/LmmaSHPYhfDiLjFC.png',
+  link: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/sMwEnXqAauLWOLXy.png',
   wildcard: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/GFpBKksaSHjobFRk.png',
   hint: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/BrvxbORXvhGTFatg.png',
   ice1: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/lWmNspyoIymfDLYF.png',
@@ -210,10 +212,20 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
           const tile = gameState.board[r]?.[c];
           if (!tile) continue;
           if (tile.isClearing) {
-            // Draw the clearing tile with squash/pop/fade animation
             drawClearingTile(ctx, tile, r, c);
           } else {
             drawTile(ctx, tile, r, c);
+          }
+          if (gameState.chainMode.linkedTiles.has(`${r},${c}`)) {
+            const p = getTilePos(r, c);
+            ctx.save();
+            ctx.strokeStyle = 'rgba(34,211,238,0.95)';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#22d3ee';
+            ctx.shadowBlur = 10;
+            roundRect(ctx, p.x + 2, p.y + 2, tileSize - 4, tileSize - 4, 8);
+            ctx.stroke();
+            ctx.restore();
           }
         }
       }
@@ -234,8 +246,39 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
         drawWordPreview(ctx, gameState.selectedPath);
       }
 
-      // Laser effects
       const now = Date.now();
+
+      // Chain resolution flash and callouts
+      if (gameState.chainResolutionFx) {
+        const fx = gameState.chainResolutionFx;
+        const age = now - fx.timestamp;
+        if (age < 900) {
+          const t = age / 900;
+          const alpha = t < 0.5 ? 1 : 1 - (t - 0.5) / 0.5;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, alpha);
+          ctx.fillStyle = 'rgba(34,211,238,0.12)';
+          ctx.fillRect(0, 0, canvasSize, canvasSize);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = '#22d3ee';
+          ctx.shadowBlur = 22;
+          const pop = 1 + Math.sin(Math.min(1, t) * Math.PI) * 0.2;
+          ctx.font = `900 ${Math.max(24, 58 * pop)}px 'Space Grotesk', sans-serif`;
+          ctx.fillStyle = '#67e8f9';
+          ctx.fillText(`${fx.multiplier}X`, canvasSize / 2, canvasSize * 0.42);
+          ctx.font = `700 20px 'Space Grotesk', sans-serif`;
+          if (age > 180) ctx.fillText('CHAIN!', canvasSize / 2, canvasSize * 0.55);
+          if (age > 320) ctx.fillText(`${fx.words} WORDS`, canvasSize / 2, canvasSize * 0.62);
+          if (age > 460) ctx.fillText(`+${fx.points}`, canvasSize / 2, canvasSize * 0.69);
+          if (age > 560) ctx.fillText(`+${fx.coins} COINS`, canvasSize / 2, canvasSize * 0.76);
+          ctx.restore();
+        } else {
+          gameState.chainResolutionFx = null;
+        }
+      }
+
+      // Laser effects
       gameState.laserEffects = gameState.laserEffects.filter(effect => {
         const age = now - effect.timestamp;
         if (age > 600) return false;
@@ -265,8 +308,9 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
         }
       }
 
-      // Coin fly
+      // Coin/score fly
       drawCoinFlyEvents(ctx);
+      drawScoreFlyEvents(ctx);
 
       // Falling animations
       for (let r = 0; r < boardSize; r++) {
@@ -282,6 +326,7 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       }
 
       // Word popup timer
+      if (gameState.uiMessageTimer > 0) gameState.uiMessageTimer--;
       if (gameState.showWordPopup && gameState.popupTimer > 0) {
         gameState.popupTimer--;
         if (gameState.popupTimer <= 0) {
@@ -543,6 +588,18 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       ctx.fillText(`${val}`, x + tileSize - 5, y + tileSize - 3);
     }
 
+    if (tile.specialType === 'link') {
+      ctx.save();
+      ctx.font = `800 ${tileSize * 0.14}px 'Space Grotesk', sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#22d3ee';
+      ctx.shadowColor = '#22d3ee';
+      ctx.shadowBlur = 8;
+      ctx.fillText('LINK', x + tileSize * 0.68, y + tileSize * 0.72);
+      ctx.restore();
+    }
+
     // Multiplier badge (both normal and special tiles)
     if (tile.letterMultiplier && tile.letterMultiplier > 1) {
       const badgeText = `${tile.letterMultiplier}x`;
@@ -717,7 +774,7 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
   // ===================== COIN FLY EVENTS =====================
   function drawCoinFlyEvents(ctx: CanvasRenderingContext2D) {
     const now = Date.now();
-    const duration = 1200;
+    const duration = LinkModeConfig.flyDurationMs;
     const targetX = canvasSize - 40;
     const targetY = 10;
 
@@ -784,6 +841,37 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       ctx.fillStyle = grad;
       ctx.fillRect(x - width, 0, width * 2, canvasSize);
     }
+    ctx.globalAlpha = 1;
+  }
+
+
+  function drawScoreFlyEvents(ctx: CanvasRenderingContext2D) {
+    const now = Date.now();
+    const duration = LinkModeConfig.flyDurationMs;
+    const targetX = 28;
+    const targetY = 8;
+
+    gameState.scoreFlyEvents = gameState.scoreFlyEvents.filter((evt: CoinFlyEvent) => {
+      const elapsed = now - evt.timestamp;
+      if (elapsed > duration) return false;
+      const t = elapsed / duration;
+      const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      const startPos = getTilePos(evt.fromRow, evt.fromCol);
+      const startX = startPos.x + tileSize / 2;
+      const startY = startPos.y + tileSize / 2;
+      const chunkCount = Math.min(LinkModeConfig.maxFlyFragments, Math.max(10, Math.floor(evt.amount / 180)));
+      for (let i = 0; i < chunkCount; i++) {
+        const jitter = (i / chunkCount - 0.5) * 36;
+        const cx = startX + (targetX - startX) * eased + jitter * (1 - eased);
+        const cy = startY + (targetY - startY) * eased + Math.sin(i * 1.8 + t * 6) * 3;
+        ctx.globalAlpha = Math.max(0.12, 1 - t);
+        ctx.fillStyle = '#34d399';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return true;
+    });
     ctx.globalAlpha = 1;
   }
 
