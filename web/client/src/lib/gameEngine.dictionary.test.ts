@@ -8,7 +8,7 @@ import {
   type LevelConfig,
 } from './gameEngine';
 
-describe('dictionary quality + hint quality (Collins validation + Oxford hints)', () => {
+describe('Collins validation + Oxford hint dictionary', () => {
   const mockedFetch = vi.fn();
 
   beforeEach(() => {
@@ -44,7 +44,7 @@ describe('dictionary quality + hint quality (Collins validation + Oxford hints)'
     mockedFetch.mockReset();
   });
 
-  it('keeps Collins gameplay coverage while filtering only by membership/profanity', async () => {
+  it('validates words by Collins membership and profanity rules', async () => {
     await loadWordList();
 
     expect(isValidWord('house')).toBe(true);
