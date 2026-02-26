@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d49342"/>
+      <stop offset="100%" stop-color="#9e6022"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f7efe3"/>
+      <stop offset="50%" stop-color="#b9a692"/>
+      <stop offset="100%" stop-color="#7d6a59"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd36a"/>
+      <stop offset="55%" stop-color="#e29f1f"/>
+      <stop offset="100%" stop-color="#9c5f0d"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="496" height="496" rx="42" fill="url(#wood)" stroke="#c5812f" stroke-width="10"/>
+  <rect x="24" y="24" width="464" height="464" rx="34" fill="none" stroke="#f4d38a" stroke-width="8"/>
+
+  <polygon points="56,100 456,100 456,188 56,254" fill="#c57f36" stroke="#91571f" stroke-width="4"/>
+
+  <g fill="none" stroke="url(#steel)" stroke-width="10" stroke-linecap="round">
+    <path d="M138 392 C180 360, 220 322, 256 292"/>
+    <path d="M374 392 C332 360, 292 322, 256 292"/>
+    <path d="M112 332 C168 356, 224 398, 262 446"/>
+    <path d="M400 332 C344 356, 288 398, 250 446"/>
+  </g>
+
+  <g fill="none" stroke="url(#steel)" stroke-width="9">
+    <ellipse cx="166" cy="364" rx="22" ry="13"/>
+    <ellipse cx="198" cy="336" rx="22" ry="13"/>
+    <ellipse cx="230" cy="308" rx="22" ry="13"/>
+    <ellipse cx="346" cy="364" rx="22" ry="13"/>
+    <ellipse cx="314" cy="336" rx="22" ry="13"/>
+    <ellipse cx="282" cy="308" rx="22" ry="13"/>
+  </g>
+
+  <circle cx="256" cy="344" r="66" fill="url(#gold)" stroke="#ffdf95" stroke-width="6"/>
+  <path d="M216 308 C216 274, 296 274, 296 308" fill="none" stroke="#c8811a" stroke-width="12"/>
+  <circle cx="222" cy="320" r="4" fill="#6b3f10"/>
+  <circle cx="290" cy="320" r="4" fill="#6b3f10"/>
+  <path d="M256 330 L270 352 L242 352 Z" fill="#2d1a0b"/>
+  <rect x="242" y="352" width="28" height="28" rx="6" fill="#2d1a0b"/>
+</svg>

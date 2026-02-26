@@ -43,7 +43,7 @@ const TILE_ASSETS: Record<string, string> = {
   laser: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/MfReTvSbtccVftXr.png',
   crossLaser: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/wdZSZEIJuSGZKWNk.png',
   mine: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/LmmaSHPYhfDiLjFC.png',
-  link: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/sMwEnXqAauLWOLXy.png',
+  link: '/tile_special_link.svg',
   wildcard: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/GFpBKksaSHjobFRk.png',
   hint: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/BrvxbORXvhGTFatg.png',
   ice1: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/lWmNspyoIymfDLYF.png',
