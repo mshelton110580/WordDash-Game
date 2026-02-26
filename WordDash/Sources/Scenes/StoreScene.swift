@@ -19,6 +19,7 @@ class StoreScene: SKScene {
         StoreItem(key: "laser", name: "Laser", icon: "⚡", description: "Places a laser tile (row/col)", price: GameEconomyConfig.storePrices["laser"] ?? 100),
         StoreItem(key: "crossLaser", name: "Cross Laser", icon: "✦", description: "Places cross laser (row+col)", price: GameEconomyConfig.storePrices["crossLaser"] ?? 150),
         StoreItem(key: "mine", name: "Mine", icon: "💥", description: "Places a mine tile", price: GameEconomyConfig.storePrices["mine"] ?? 125),
+        StoreItem(key: "link", name: "Chain Link", icon: "🔗", description: "Starts Chain Mode (web parity)", price: GameEconomyConfig.storePrices["link"] ?? 400),
     ]
 
     override func didMove(to view: SKView) {
@@ -34,6 +35,12 @@ class StoreScene: SKScene {
         titleLabel.fontColor = .white
         titleLabel.position = CGPoint(x: size.width / 2, y: size.height - 80)
         addChild(titleLabel)
+        let promoLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        promoLabel.text = "New: 🔗 Chain Link"
+        promoLabel.fontSize = 13
+        promoLabel.fontColor = SKColor(red: 0.4, green: 0.95, blue: 1.0, alpha: 0.95)
+        promoLabel.position = CGPoint(x: size.width / 2, y: size.height - 108)
+        addChild(promoLabel)
 
         // Coin display
         coinLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
@@ -53,7 +60,7 @@ class StoreScene: SKScene {
         addChild(backLabel)
 
         // Store items
-        let startY = size.height - 140
+        let startY = size.height - 165
         let itemHeight: CGFloat = 90
 
         for (index, item) in items.enumerated() {
