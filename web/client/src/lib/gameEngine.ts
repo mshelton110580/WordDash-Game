@@ -139,16 +139,28 @@ export function areAdjacent(a: Tile, b: Tile): boolean {
   return dr <= 1 && dc <= 1;
 }
 
-// --- Dictionary sources (loaded async) ---
-// Gameplay validation uses Collins dictionary.
-// Hint generation uses Oxford 3000 list.
-let collinsWordSet: Set<string> = new Set();
-let oxfordHintWordSet: Set<string> = new Set();
+// --- Word list (loaded async) ---
+let wordSet: Set<string> = new Set();
+let commonWordSet: Set<string> = new Set();
 let wordListLoaded = false;
 
-const DEFAULT_OXFORD_HINT_WORDS = ['THE','AND','FOR','ARE','BUT','NOT','YOU','ALL','CAN','HER','WAS','ONE','OUR','OUT','DAY','HAD','HAS','HIS','HOW','MAN','NEW','NOW','OLD','SEE','WAY','WHO','BOY','DID','GET','HIM','LET','SAY','SHE','TOO','USE','CAT','DOG','RUN','SIT','TOP','RED','BIG','FUN','SUN','CUP','BUS','MAP','PEN','TEN','WIN','AIR','EAT','FAR','HOT','OWN','PAY','AGE','AGO','BAD','BED','CUT','END','FEW','GOT','HIT','JOB','KEY','LAW','LOT','LOW','MET','OIL','PUT','RAN','SET','SIX','TRY','TWO','WAR','YES','YET','ART','BAR','BIT','BOX','CAR','DIE','EAR','EYE','FIT','GAS','ICE','LAY','LEG','LIE','LOG','PIN','RAW','ROW','RUB','SEA','SKI','TAX','TIE','WET','WORD','GAME','PLAY','TILE','STAR','FIRE','GOLD','BLUE','DARK','FAST','SLOW','JUMP','FLIP','SPIN','SWAP','BURN','COOL','WARM','COLD','HEAT','RAIN','SNOW','WIND','WAVE','ROCK','SAND','IRON','WOOD','TREE','LEAF','ROOT','SEED','GROW','ROSE','POND','LAKE','POOL','DEEP','WIDE','LONG','TALL','THIN','FLAT','SOFT','HARD','LOUD','CALM','WILD','RICH','POOR','FULL','OPEN','LOCK','FREE','LINK','LOOP','RING','BAND','ROPE','WIRE','CHAIN','FENCE','WALL','GATE','DOOR','PATH','ROAD','LANE','TRACK','ROUTE','BRIDGE','TOWER','HOUSE','SCHOOL','STORE','MARKET','GARDEN','FOREST','DESERT','ISLAND','OCEAN','RIVER','CREEK','BROOK','STREAM'];
-// Used only when Collins files are unavailable.
-const DEFAULT_COLLINS_FALLBACK_WORDS = [...DEFAULT_OXFORD_HINT_WORDS, 'AAHED', 'AARDVARK', 'ZOO', 'ZOOLOGIST'];
+// Keep dictionary gameplay-friendly: reject obscure all-caps lexicon artifacts.
+// This intentionally favors words most players recognize.
+function isCommonFriendlyWord(upper: string): boolean {
+  if (!/^[A-Z]{3,8}$/.test(upper)) return false;
+  if (!/[AEIOUY]/.test(upper)) return false;
+
+  const rareCount = (upper.match(/[JQXZ]/g) || []).length;
+  if (rareCount > 1) return false;
+  if (upper.includes('Q') && !upper.includes('QU')) return false;
+
+  const uncommonClusters = ['AAL', 'AAR', 'EAU', 'II', 'UU', 'YY', 'VJ', 'QX', 'ZX'];
+  if (uncommonClusters.some(c => upper.includes(c))) return false;
+
+  return true;
+}
+
+const COMMON_HINT_WORDS = ['THE','AND','FOR','ARE','BUT','NOT','YOU','ALL','CAN','HER','WAS','ONE','OUR','OUT','DAY','HAD','HAS','HIS','HOW','MAN','NEW','NOW','OLD','SEE','WAY','WHO','BOY','DID','GET','HIM','LET','SAY','SHE','TOO','USE','CAT','DOG','RUN','SIT','TOP','RED','BIG','FUN','SUN','CUP','BUS','MAP','PEN','TEN','WIN','AIR','EAT','FAR','HOT','OWN','PAY','AGE','AGO','BAD','BED','CUT','END','FEW','GOT','GUN','HIT','JOB','KEY','LAW','LOT','LOW','MET','OIL','PUT','RAN','SET','SIX','TRY','TWO','WAR','YES','YET','ART','BAR','BIT','BOX','CAR','DIE','EAR','EYE','FIT','GAS','GOD','ICE','ILL','LAY','LEG','LIE','LOG','MIX','NOR','ODD','PIN','RAW','ROW','RUB','SEA','SKI','TAX','TIE','WET','WORD','DASH','GAME','PLAY','TILE','BOMB','STAR','FIRE','GOLD','BLUE','GLOW','DARK','FAST','SLOW','JUMP','FLIP','SPIN','SWAP','WIPE','MELT','BURN','COOL','WARM','COLD','HEAT','RAIN','SNOW','WIND','WAVE','ROCK','SAND','DUST','RUST','IRON','WOOD','TREE','LEAF','ROOT','SEED','GROW','VINE','ROSE','LILY','FERN','MOSS','POND','LAKE','POOL','WELL','DEEP','WIDE','LONG','TALL','THIN','FLAT','SOFT','HARD','LOUD','CALM','WILD','TAME','BOLD','MILD','KEEN','DULL','RICH','POOR','FULL','VOID','OPEN','SHUT','LOCK','FREE','BIND','LINK','KNOT','LOOP','RING','BAND','CORD','ROPE','WIRE','CHAIN','FENCE','WALL','GATE','DOOR','PATH','ROAD','LANE','TRAIL','TRACK','ROUTE','BRIDGE','TOWER','HOUSE','CABIN','LODGE','MANOR','CASTLE','PALACE','TEMPLE','CHURCH','SCHOOL','STORE','MARKET','GARDEN','FOREST','DESERT','ISLAND','OCEAN','RIVER','CREEK','BROOK','STREAM'];
 
 // Simple profanity block list
 const profanitySet: Set<string> = new Set([
@@ -173,18 +185,7 @@ export async function loadWordList(): Promise<void> {
   oxfordHintWordSet = new Set();
 
   try {
-    // Collins dictionary for gameplay validation.
-    let collinsResp: Response;
-    try {
-      collinsResp = await fetch('/wordlist.txt');
-      if (!collinsResp.ok) throw new Error('Local Collins fetch failed');
-    } catch {
-      collinsResp = await fetch('https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/FwtwNksZrpzYsGNR.txt');
-    }
-
-    collinsWordSet = new Set(parseUpperWords(await collinsResp.text()));
-
-    // Oxford 3000 for hints only (no legacy common_words fallback).
+    let resp: Response;
     try {
       const oxfordResp = await fetch('/oxford3000.txt');
       if (oxfordResp.ok) {
@@ -195,16 +196,39 @@ export async function loadWordList(): Promise<void> {
       // ignore optional hint dictionary load failure
     }
 
-    if (oxfordHintWordSet.size === 0) {
-      oxfordHintWordSet = new Set(DEFAULT_OXFORD_HINT_WORDS.filter(w => collinsWordSet.has(w)));
+    const text = await resp.text();
+    const words = text
+      .split('\n')
+      .map(w => w.trim().toUpperCase())
+      .filter(w => w.length >= 3 && /^[A-Z]+$/.test(w));
+
+    wordSet = new Set(words.filter(isCommonFriendlyWord));
+
+    // Optional curated list override for hints/validation strictness.
+    try {
+      const commonResp = await fetch('/common_words.txt');
+      if (commonResp.ok) {
+        const commonText = await commonResp.text();
+        const curated = commonText
+          .split('\n')
+          .map(w => w.trim().toUpperCase())
+          .filter(w => w.length >= 3 && /^[A-Z]+$/.test(w));
+        commonWordSet = new Set(curated.filter(w => wordSet.has(w)));
+      }
+    } catch {
+      // ignore optional file load failure
+    }
+
+    if (commonWordSet.size === 0) {
+      commonWordSet = new Set(COMMON_HINT_WORDS.filter(w => wordSet.has(w)));
     }
 
     wordListLoaded = true;
-    console.log(`Loaded Collins words=${collinsWordSet.size}, Oxford hints=${oxfordHintWordSet.size}`);
+    console.log(`Loaded dictionary words=${wordSet.size}, common=${commonWordSet.size}`);
   } catch (e) {
-    console.error('Failed to load Collins dictionary, using bundled fallback list', e);
-    collinsWordSet = new Set(DEFAULT_COLLINS_FALLBACK_WORDS.map(w => w.toUpperCase()));
-    oxfordHintWordSet = new Set(DEFAULT_OXFORD_HINT_WORDS.map(w => w.toUpperCase()).filter(w => collinsWordSet.has(w)));
+    console.error('Failed to load word list, using fallback common list', e);
+    wordSet = new Set(COMMON_HINT_WORDS.map(w => w.toUpperCase()));
+    commonWordSet = new Set(COMMON_HINT_WORDS.map(w => w.toUpperCase()));
     wordListLoaded = true;
   }
 }
@@ -212,12 +236,12 @@ export async function loadWordList(): Promise<void> {
 export function isValidWord(word: string): boolean {
   const upper = word.toUpperCase();
   if (profanitySet.has(upper)) return false;
-  return collinsWordSet.has(upper);
+  return commonWordSet.has(upper);
 }
 
 function isHintWord(word: string): boolean {
   const upper = word.toUpperCase();
-  return oxfordHintWordSet.has(upper) && upper.length >= 3 && upper.length <= 8;
+  return commonWordSet.has(upper) && upper.length >= 3 && upper.length <= 6;
 }
 
 // --- Laser effect tracking for visual rendering ---
