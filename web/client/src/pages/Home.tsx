@@ -16,8 +16,10 @@ import {
   useCrossLaserPowerUp,
   useMinePowerUp,
   useHintPowerUp,
+  useLinkPowerUp,
   type GameState,
   type LevelConfig,
+  forceResolveChainOnTimer,
 } from '@/lib/gameEngine';
 import {
   CoinManager,
@@ -40,9 +42,16 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
-const BG_URL = 'https://private-us-east-1.manuscdn.com/sessionFile/SLncvH8jfLBUJFhJyzxsVd/sandbox/5W0yPyMY9zoRERJvmzw3Nf-img-1_1771961155000_na1fn_d29yZGRhc2gtYmc.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvU0xuY3ZIOGpmTEJVSkZoSnl6eHNWZC9zYW5kYm94LzVXMHlQeU1ZOXpvUkVSSnZtenczTmYtaW1nLTFfMTc3MTk2MTE1NTAwMF9uYTFmbl9kMjl5WkdSaGMyZ3RZbWMucG5nP3gtb3NzLXByb2Nlc3M9aW1hZ2UvcmVzaXplLHdfMTkyMCxoXzE5MjAvZm9ybWF0LHdlYnAvcXVhbGl0eSxxXzgwIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzk4NzYxNjAwfX19XX0_&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=WSet-d934Y64HeIMczBFxJgACfg5RGuoiLWvl7ZzfWMHJo7mEbOLK10F9XwvLfdpByU0thYA~ZgpPY8ZcfCxobJpdWREtjILrEBiKuPSr58LPGZgb6z-tEn~VUUrTxWTKSVud6~hexXyjWS~ibDGP39~04wa4id8l~LrFpsL6v-VnhU0b131hc96oYlHNdHb4bNqw0WRjdAur6y1ZiGpVN6-TbfZbJwIY30Evfv9-nsgYDVeJreFu~vXJI0B~crh6oxyIa-QN7RRwE-SB6rhZDfHHcKICiIfqhoP9nHnptEMT0YAqKJIloOsVv5l5mRj~PDtWIXh09KKbm0wYW9XJg__';
-
 const TILES_URL = 'https://private-us-east-1.manuscdn.com/sessionFile/SLncvH8jfLBUJFhJyzxsVd/sandbox/5W0yPyMY9zoRERJvmzw3Nf-img-3_1771961159000_na1fn_d29yZGRhc2gtdGlsZXMtaGVybw.png?x-oss-process=image/resize,w_1920,h_1920/format,webp/quality,q_80&Expires=1798761600&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvU0xuY3ZIOGpmTEJVSkZoSnl6eHNWZC9zYW5kYm94LzVXMHlQeU1ZOXpvUkVSSnZtenczTmYtaW1nLTNfMTc3MTk2MTE1OTAwMF9uYTFmbl9kMjl5WkdSaGMyZ3RkR2xzWlhNdGFHVnlidy5wbmc~eC1vc3MtcHJvY2Vzcz1pbWFnZS9yZXNpemUsd18xOTIwLGhfMTkyMC9mb3JtYXQsd2VicC9xdWFsaXR5LHFfODAiLCJDb25kaXRpb24iOnsiRGF0ZUxlc3NUaGFuIjp7IkFXUzpFcG9jaFRpbWUiOjE3OTg3NjE2MDB9fX1dfQ__&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=Hk2p4vpvKgZsp8hQpLuPSENPDP9bGmjFt5cXZsKHXaGGPdFchTvE07Tlyq4lB8k~J8--O-N5Q5LRJPxWH7PuJfTyGpoa06QlbdgUFuPuURC4uP2v0wSv-05iZ35HbwY~UW08PXlMV3RTSK4YtBkeq~X1GvB6UQr7VgQuEYHssVE8KsUbzVZq61xc81OZS3aSDYF2fkZ6jSbEEdkcxxWkKx6TOhyr8dW9VEHgfyyqdEf0tw5Hz0RBlKEFbBNSNWJlmWD1DGT1zNneNCO7xQEpQFCwzDgCWpjsRSVlVQLOyyZmVOUz4q6IKgFobT5b-3ojn97WH3CFD5wlbdzQH56ABg__';
+
+const APP_BG = {
+  base: '#07110f',
+  gradient: 'linear-gradient(155deg, #07110f 0%, #0d1f1a 40%, #13231e 68%, #1b211f 100%)',
+  glowA: 'radial-gradient(circle at 18% 22%, rgba(16,185,129,0.18), transparent 44%)',
+  glowB: 'radial-gradient(circle at 78% 10%, rgba(245,158,11,0.14), transparent 38%)',
+  glowC: 'radial-gradient(circle at 70% 78%, rgba(34,211,238,0.08), transparent 40%)',
+};
+
 
 type Screen = 'menu' | 'levels' | 'game' | 'result' | 'store' | 'continue';
 
@@ -121,6 +130,7 @@ export default function Home() {
           if (next.timeRemaining <= 0) {
             next.timeRemaining = 0;
             if (!next.isWon) {
+              forceResolveChainOnTimer(next);
               next.isGameOver = true;
               next.stars = 0;
             }
@@ -165,6 +175,7 @@ export default function Home() {
           laser: gameState.powerUps.laser,
           crossLaser: gameState.powerUps.crossLaser,
           mine: gameState.powerUps.mine,
+          link: gameState.powerUps.link,
         });
 
         if (!current || gameState.score > current.score || gameState.stars > current.stars) {
@@ -194,6 +205,7 @@ export default function Home() {
     state.powerUps.laser = inv.laser;
     state.powerUps.crossLaser = inv.crossLaser;
     state.powerUps.mine = inv.mine;
+    state.powerUps.link = inv.link;
     setGameState(state);
     setContinueSession(createContinueSession());
     setScreen('game');
@@ -256,18 +268,18 @@ export default function Home() {
   // --- Screens ---
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0e27' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: APP_BG.gradient }}>
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center">
           <div className="w-12 h-12 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white/60 font-medium">Loading dictionary...</p>
+          <p className="text-emerald-100/75 font-medium">Loading dictionary...</p>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0a0e27 0%, #1a1040 50%, #0d1530 100%)' }}>
-      <div className="absolute inset-0 opacity-30" style={{ backgroundImage: `url(${BG_URL})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+    <div className="min-h-screen relative overflow-hidden" style={{ background: APP_BG.gradient }}>
+      <div className="absolute inset-0" style={{ backgroundImage: `${APP_BG.glowA}, ${APP_BG.glowB}, ${APP_BG.glowC}` }} />
       <div className="relative z-10">
         {/* Daily Login Reward Modal */}
         <AnimatePresence>
@@ -288,7 +300,7 @@ export default function Home() {
               gameState={gameState}
               onStateChange={handleStateChange}
               onWordSubmitted={handleWordSubmitted}
-              onQuit={() => { if (timerRef.current) clearInterval(timerRef.current); saveInventory({ hint: gameState.powerUps.hint, bomb: gameState.powerUps.bomb, laser: gameState.powerUps.laser, crossLaser: gameState.powerUps.crossLaser, mine: gameState.powerUps.mine }); setScreen('levels'); }}
+              onQuit={() => { if (timerRef.current) clearInterval(timerRef.current); saveInventory({ hint: gameState.powerUps.hint, bomb: gameState.powerUps.bomb, laser: gameState.powerUps.laser, crossLaser: gameState.powerUps.crossLaser, mine: gameState.powerUps.mine, link: gameState.powerUps.link }); setScreen('levels'); }}
             />
           )}
           {screen === 'result' && gameState && (
@@ -333,7 +345,7 @@ function DailyLoginModal({ day, amount, onClaim }: { day: number; amount: number
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.8, opacity: 0 }}
-        className="w-full max-w-sm p-6 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#1a1040] to-[#0d1530] text-center"
+        className="w-full max-w-sm p-6 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-[#132821] to-[#111a18] text-center shadow-2xl shadow-emerald-900/25"
       >
         <div className="text-3xl mb-2">🎁</div>
         <h2 className="text-xl font-bold text-white mb-1">Daily Login Reward</h2>
@@ -392,15 +404,18 @@ function MenuScreen({ onPlay, onStore }: { onPlay: () => void; onStore: () => vo
         WordDash
       </motion.h1>
       <motion.img src={TILES_URL} alt="Floating tiles" className="w-80 md:w-[28rem] mb-8 opacity-80" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 0.8 }} transition={{ delay: 0.3 }} />
+      <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.45 }} className="mb-4 px-4 py-2 rounded-full border border-emerald-300/20 bg-black/25 text-emerald-200/80 text-xs tracking-wide">
+        Cozy wood + midnight glass theme
+      </motion.div>
       <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} className="flex gap-4">
-        <Button onClick={onPlay} size="lg" className="text-lg px-12 py-6 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all hover:shadow-emerald-400/40 hover:scale-105">
+        <Button onClick={onPlay} size="lg" className="text-lg px-12 py-6 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-black font-bold rounded-xl shadow-lg shadow-emerald-900/35 transition-all hover:shadow-emerald-700/35 hover:scale-105">
           Play
         </Button>
-        <Button onClick={onStore} size="lg" variant="outline" className="text-lg px-8 py-6 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 font-bold rounded-xl transition-all hover:scale-105">
+        <Button onClick={onStore} size="lg" variant="outline" className="text-lg px-8 py-6 border-amber-400/40 text-amber-300 hover:bg-amber-500/15 hover:text-amber-200 font-bold rounded-xl transition-all hover:scale-105 bg-black/20">
           🛒 Store
         </Button>
       </motion.div>
-      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-6 text-white/30 text-sm">
+      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-6 text-emerald-100/55 text-sm">
         Drag across tiles to form words. Longer words earn special tiles!
       </motion.p>
     </motion.div>
@@ -413,6 +428,7 @@ function StoreScreen({ onBack }: { onBack: () => void }) {
   const [, forceUpdate] = useState(0);
 
   const powerups = [
+    { key: 'link' as const, icon: '🔗', name: 'Chain Link', desc: 'Starts Chain Mode; overlap words to build a multiplier', cost: GameEconomyConfig.storePrices.link },
     { key: 'hint' as const, icon: '💡', name: 'Hint', desc: 'Highlights a valid word on the board', cost: GameEconomyConfig.storePrices.hint },
     { key: 'bomb' as const, icon: '💣', name: 'Bomb', desc: 'Places a bomb tile that clears 3×3', cost: GameEconomyConfig.storePrices.bomb },
     { key: 'laser' as const, icon: '⚡', name: 'Laser', desc: 'Places a laser tile that clears a row or column', cost: GameEconomyConfig.storePrices.laser },
@@ -434,13 +450,15 @@ function StoreScreen({ onBack }: { onBack: () => void }) {
   return (
     <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="min-h-screen px-4 py-8">
       <div className="max-w-lg mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-3">
           <Button variant="ghost" onClick={onBack} className="text-white/60 hover:text-white">← Back</Button>
           <h2 className="text-xl font-bold text-white">Power-Up Store</h2>
           <CoinDisplay size="sm" />
         </div>
 
-        <div className="space-y-3">
+        <p className="text-xs text-cyan-300/80 mb-3">New: 🔗 Chain Link power-up (starts Chain Mode)</p>
+
+        <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
           {powerups.map((pu) => {
             const owned = inventory[pu.key];
             const affordable = CoinManager.canAfford(pu.cost);
@@ -449,7 +467,7 @@ function StoreScreen({ onBack }: { onBack: () => void }) {
                 key={pu.key}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm"
+                className="flex items-center gap-4 p-4 rounded-xl border border-emerald-200/10 bg-black/20 backdrop-blur-sm shadow-lg shadow-black/20"
               >
                 <div className="text-3xl w-12 text-center">{pu.icon}</div>
                 <div className="flex-1">
@@ -509,7 +527,7 @@ function LevelSelectScreen({ onBack, onSelectLevel, bestScores }: {
                 disabled={!isUnlocked}
                 className={`relative p-5 rounded-xl border transition-all ${
                   isUnlocked
-                    ? 'border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/10'
+                    ? 'border-emerald-200/10 bg-black/20 backdrop-blur-sm hover:bg-black/30 hover:border-emerald-400/35 hover:shadow-lg hover:shadow-emerald-900/20'
                     : 'border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed'
                 }`}
               >
@@ -577,6 +595,7 @@ function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
       laser: useLaserPowerUp,
       crossLaser: useCrossLaserPowerUp,
       mine: useMinePowerUp,
+      link: useLinkPowerUp,
     };
     const fn = placementFns[name];
     if (fn) {
@@ -587,6 +606,7 @@ function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
         laser: '⚡ Laser placed on a random tile!',
         crossLaser: '✦ Cross Laser placed on a random tile!',
         mine: '💥 Mine placed on a random tile!',
+        link: '🔗 Chain Link placed on a random tile!',
       };
       toast.info(labels[name] || 'Power-up placed!');
     }
@@ -639,12 +659,19 @@ function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
                 🔥 Streak ×{gameState.streakMultiplier.toFixed(1)}
               </motion.span>
             )}
+            {gameState.chainMode.chainActive && (
+              <motion.span initial={{ scale: 1.2 }} animate={{ scale: 1 }} className="text-xs text-cyan-300 font-bold">
+                🔗 Chain {gameState.chainMode.chainWordCount}W • Base {gameState.chainMode.chainBasePoints}
+              </motion.span>
+            )}
             {!isTimedLevel && (
               <span className="text-xs text-cyan-300">❄ {gameState.iceCleared}/{gameState.totalIce}</span>
             )}
           </div>
         </div>
       </div>
+
+      {gameState.uiMessageTimer > 0 && <div className="text-center mb-1 text-xs text-cyan-300">{gameState.uiMessage}</div>}
 
       {/* Word popup */}
       <AnimatePresence>
@@ -670,6 +697,7 @@ function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
           <PowerUpButton icon="⚡" label="Laser" count={gameState.powerUps.laser} onClick={() => activatePowerUp('laser')} />
           <PowerUpButton icon="✦" label="Cross" count={gameState.powerUps.crossLaser} onClick={() => activatePowerUp('crossLaser')} />
           <PowerUpButton icon="💥" label="Mine" count={gameState.powerUps.mine} onClick={() => activatePowerUp('mine')} />
+          <PowerUpButton icon="🔗" label="Link" count={gameState.powerUps.link} onClick={() => activatePowerUp('link')} />
         </div>
 
         {/* Words found */}
