@@ -54,6 +54,21 @@ describe('Collins validation + Oxford hint dictionary', () => {
     expect(isValidWord('qwerty')).toBe(false);
   });
 
+
+  it('uses bundled Collins fallback when dictionary fetch fails', async () => {
+    mockedFetch
+      .mockImplementationOnce(async () => { throw new Error('network unavailable'); })
+      .mockImplementationOnce(async () => { throw new Error('network unavailable'); });
+
+    await loadWordList();
+
+    // Present in bundled Collins fallback additions
+    expect(isValidWord('aahed')).toBe(true);
+    expect(isValidWord('aardvark')).toBe(true);
+    // Still blocked by profanity filter
+    expect(isValidWord('fuck')).toBe(false);
+  });
+
   it('hint search uses Oxford hint list', async () => {
     await loadWordList();
 
