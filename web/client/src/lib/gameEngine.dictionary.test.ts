@@ -9,37 +9,39 @@ import {
 } from './gameEngine';
 
 describe('Collins validation + Oxford hint dictionary', () => {
-  const mockedFetch = vi.fn(async (input: RequestInfo | URL) => {
-    const url = String(input);
-
-    // Collins gameplay dictionary
-    if (url.includes('wordlist.txt')) {
-      return {
-        ok: true,
-        text: async () => ['AAA', 'AAHED', 'HOUSE', 'CAT', 'TREE', 'DOG', 'CLOUD', 'ZZZ'].join('\n'),
-      } as Response;
-    }
-
-    // Oxford hint list should only include familiar hint words
-    if (url.includes('oxford3000.txt')) {
-      return {
-        ok: true,
-        text: async () => ['HOUSE', 'CAT', 'TREE', 'DOG', 'CLOUD'].join('\n'),
-      } as Response;
-    }
-    return {
-      ok: false,
-      text: async () => '',
-    } as Response;
-  });
+  const mockedFetch = vi.fn();
 
   beforeEach(() => {
+    mockedFetch.mockReset();
+    mockedFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.includes('wordlist.txt')) {
+        return {
+          ok: true,
+          text: async () => ['AAA', 'AAHED', 'HOUSE', 'CAT', 'TREE', 'DOG', 'CLOUD', 'ZZZ'].join('\n'),
+        } as Response;
+      }
+
+      if (url.includes('oxford3000.txt')) {
+        return {
+          ok: true,
+          text: async () => ['HOUSE', 'CAT', 'TREE', 'DOG', 'CLOUD'].join('\n'),
+        } as Response;
+      }
+
+      return {
+        ok: false,
+        text: async () => '',
+      } as Response;
+    });
+
     vi.stubGlobal('fetch', mockedFetch);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    mockedFetch.mockClear();
+    mockedFetch.mockReset();
   });
 
   it('validates gameplay words against Collins dictionary', async () => {
@@ -54,8 +56,9 @@ describe('Collins validation + Oxford hint dictionary', () => {
     expect(isValidWord('qwerty')).toBe(false);
   });
 
-
   it('uses bundled Collins fallback when dictionary fetch fails', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
     mockedFetch
       .mockImplementationOnce(async () => { throw new Error('network unavailable'); })
       .mockImplementationOnce(async () => { throw new Error('network unavailable'); });
@@ -67,6 +70,15 @@ describe('Collins validation + Oxford hint dictionary', () => {
     expect(isValidWord('aardvark')).toBe(true);
     // Still blocked by profanity filter
     expect(isValidWord('fuck')).toBe(false);
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('does not request legacy common_words hint file', async () => {
+    await loadWordList();
+
+    const calls = mockedFetch.mock.calls.map(([input]) => String(input));
+    expect(calls.some(url => url.includes('common_words.txt'))).toBe(false);
   });
 
   it('hint search uses Oxford hint list', async () => {

@@ -168,6 +168,10 @@ function parseUpperWords(text: string): string[] {
 }
 
 export async function loadWordList(): Promise<void> {
+  // Reset sets so repeated loads do not retain stale dictionary data.
+  collinsWordSet = new Set();
+  oxfordHintWordSet = new Set();
+
   try {
     // Collins dictionary for gameplay validation.
     let collinsResp: Response;
