@@ -172,14 +172,28 @@ export function isWordListLoaded(): boolean {
   return wordListLoaded;
 }
 
+function parseUpperWords(text: string): string[] {
+  return text
+    .split('\n')
+    .map(w => w.trim().toUpperCase())
+    .filter(w => w.length >= 3 && /^[A-Z]+$/.test(w));
+}
+
 export async function loadWordList(): Promise<void> {
+  // Reset sets so repeated loads do not retain stale dictionary data.
+  collinsWordSet = new Set();
+  oxfordHintWordSet = new Set();
+
   try {
     let resp: Response;
     try {
-      resp = await fetch('/wordlist.txt');
-      if (!resp.ok) throw new Error('Local fetch failed');
+      const oxfordResp = await fetch('/oxford3000.txt');
+      if (oxfordResp.ok) {
+        const oxfordWords = parseUpperWords(await oxfordResp.text());
+        oxfordHintWordSet = new Set(oxfordWords.filter(w => collinsWordSet.has(w)));
+      }
     } catch {
-      resp = await fetch('https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/FwtwNksZrpzYsGNR.txt');
+      // ignore optional hint dictionary load failure
     }
 
     const text = await resp.text();
