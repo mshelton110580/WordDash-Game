@@ -180,7 +180,7 @@ export async function loadWordList(): Promise<void> {
 
     collinsWordSet = new Set(parseUpperWords(await collinsResp.text()));
 
-    // Oxford 3000 for hints only.
+    // Oxford 3000 for hints only (no legacy common_words fallback).
     try {
       const oxfordResp = await fetch('/oxford3000.txt');
       if (oxfordResp.ok) {
