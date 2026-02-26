@@ -16,7 +16,35 @@ struct PowerUpInventory: Codable {
     var laserCount: Int = 2
     var crossLaserCount: Int = 1
     var mineCount: Int = 1
+    var linkCount: Int = 0
+
+    subscript(_ key: String) -> Int? {
+        get {
+            switch key {
+            case "hint": return hintCount
+            case "bomb": return bombCount
+            case "laser": return laserCount
+            case "crossLaser": return crossLaserCount
+            case "mine": return mineCount
+            case "link": return linkCount
+            default: return nil
+            }
+        }
+        set {
+            guard let value = newValue else { return }
+            switch key {
+            case "hint": hintCount = value
+            case "bomb": bombCount = value
+            case "laser": laserCount = value
+            case "crossLaser": crossLaserCount = value
+            case "mine": mineCount = value
+            case "link": linkCount = value
+            default: break
+            }
+        }
+    }
 }
+
 
 // MARK: - GameStats
 
