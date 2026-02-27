@@ -588,17 +588,6 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       ctx.fillText(`${val}`, x + tileSize - 5, y + tileSize - 3);
     }
 
-    if (tile.specialType === 'link') {
-      ctx.save();
-      ctx.font = `800 ${tileSize * 0.14}px 'Space Grotesk', sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#22d3ee';
-      ctx.shadowColor = '#22d3ee';
-      ctx.shadowBlur = 8;
-      ctx.fillText('LINK', x + tileSize * 0.68, y + tileSize * 0.72);
-      ctx.restore();
-    }
 
     // Multiplier badge (both normal and special tiles)
     if (tile.letterMultiplier && tile.letterMultiplier > 1) {
