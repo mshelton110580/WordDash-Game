@@ -9,6 +9,7 @@ import GameBoard from '@/components/GameBoard';
 import {
   createGameState,
   LEVELS,
+  POWERUP_UNLOCK_LEVELS,
   loadWordList,
   useShuffle,
   useBombPowerUp,
@@ -17,8 +18,12 @@ import {
   useMinePowerUp,
   useHintPowerUp,
   useLinkPowerUp,
+  loadUnlockedPowerups,
+  saveUnlockedPowerups,
+  getNewlyUnlockedPowerups,
   type GameState,
   type LevelConfig,
+  type PowerupName,
   forceResolveChainOnTimer,
 } from '@/lib/gameEngine';
 import {
@@ -104,6 +109,8 @@ export default function Home() {
   const [dailyRewardAmount, setDailyRewardAmount] = useState(0);
   const [dailyRewardDay, setDailyRewardDay] = useState(0);
   const [testMode, setTestMode] = useState(false);
+  const [unlockedPowerups, setUnlockedPowerups] = useState<Set<PowerupName>>(() => loadUnlockedPowerups());
+  const [newUnlockNames, setNewUnlockNames] = useState<PowerupName[]>([]); // shown in unlock popup
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load word list on mount + check daily login + tutorial
@@ -212,6 +219,17 @@ export default function Home() {
           setBestScores(updated);
           localStorage.setItem('worddash_progress', JSON.stringify(updated));
         }
+
+        // Check for newly unlocked powerups
+        const newlyUnlocked = getNewlyUnlockedPowerups(lvl, unlockedPowerups);
+        if (newlyUnlocked.length > 0) {
+          const next = new Set(unlockedPowerups);
+          newlyUnlocked.forEach(n => next.add(n));
+          setUnlockedPowerups(next);
+          saveUnlockedPowerups(next);
+          setNewUnlockNames(newlyUnlocked);
+        }
+
         setTimeout(() => setScreen('result'), 800);
       } else {
         // Level failed — show continue modal
@@ -224,14 +242,16 @@ export default function Home() {
   const startLevel = useCallback((level: LevelConfig) => {
     setSelectedLevel(level);
     const state = createGameState(level);
-    // Load persisted power-up inventory
+    // Load persisted power-up inventory, gated by unlock state
     const inv = loadInventory();
-    state.powerUps.hint = inv.hint;
-    state.powerUps.bomb = inv.bomb;
-    state.powerUps.laser = inv.laser;
-    state.powerUps.crossLaser = inv.crossLaser;
-    state.powerUps.mine = inv.mine;
-    state.powerUps.link = inv.link;
+    const ul = loadUnlockedPowerups();
+    state.powerUps.hint       = ul.has('hint')       ? inv.hint       : 0;
+    state.powerUps.bomb       = ul.has('bomb')       ? inv.bomb       : 0;
+    state.powerUps.laser      = ul.has('laser')      ? inv.laser      : 0;
+    state.powerUps.crossLaser = ul.has('crossLaser') ? inv.crossLaser : 0;
+    state.powerUps.mine       = ul.has('mine')       ? inv.mine       : 0;
+    state.powerUps.shuffle    = ul.has('shuffle')    ? inv.shuffle    : 0;
+    state.powerUps.link       = ul.has('link')       ? inv.link       : 0;
     setGameState(state);
     setContinueSession(createContinueSession());
     setScreen('game');
@@ -319,6 +339,13 @@ export default function Home() {
           )}
         </AnimatePresence>
 
+        {/* Powerup Unlock Popup */}
+        <AnimatePresence>
+          {newUnlockNames.length > 0 && (
+            <PowerupUnlockModal names={newUnlockNames} onDismiss={() => setNewUnlockNames([])} />
+          )}
+        </AnimatePresence>
+
         <AnimatePresence mode="wait">
           {screen === 'menu' && <MenuScreen key="menu" onPlay={() => setScreen('levels')} onStore={() => setScreen('store')} onStats={() => setScreen('stats')} onSettings={() => setScreen('settings')} testMode={testMode} onToggleTestMode={() => {
             const newMode = !testMode;
@@ -338,6 +365,7 @@ export default function Home() {
             <GameScreen
               key="game"
               gameState={gameState}
+              unlockedPowerups={unlockedPowerups}
               onStateChange={handleStateChange}
               onWordSubmitted={handleWordSubmitted}
               onQuit={() => { if (timerRef.current) clearInterval(timerRef.current); saveInventory({ hint: gameState.powerUps.hint, bomb: gameState.powerUps.bomb, laser: gameState.powerUps.laser, crossLaser: gameState.powerUps.crossLaser, mine: gameState.powerUps.mine, link: gameState.powerUps.link }); setScreen('levels'); }}
@@ -596,6 +624,8 @@ function LevelSelectScreen({ onBack, onSelectLevel, bestScores, testMode = false
                 }`}
               >
                 <div className="text-2xl font-bold text-white mb-1">{level.levelNumber}</div>
+                {/* Board size badge */}
+                <div className="text-[9px] text-white/25 font-mono mb-1">{level.boardSize}×{level.boardSize}</div>
                 <div className="text-xs text-white/40 mb-2">
                   {level.goalType === 'scoreTimed' ? `Score ${level.targetScore}` : `Clear ${level.iceTilesToClearTarget} ice`}
                 </div>
@@ -618,8 +648,9 @@ function LevelSelectScreen({ onBack, onSelectLevel, bestScores, testMode = false
 }
 
 // --- Game Screen ---
-function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
+function GameScreen({ gameState, unlockedPowerups, onStateChange, onWordSubmitted, onQuit }: {
   gameState: GameState;
+  unlockedPowerups: Set<PowerupName>;
   onStateChange: (state: GameState) => void;
   onWordSubmitted: (word: string, score: number, valid: boolean, reason?: string) => void;
   onQuit: () => void;
@@ -758,13 +789,13 @@ function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
       {/* Power-ups bar */}
       <div className="max-w-[560px] mx-auto w-full mt-3">
         <div className="flex justify-center gap-2 flex-wrap">
-          <PowerUpButton icon="💡" label="Hint" count={gameState.powerUps.hint} onClick={() => activatePowerUp('hint')} />
-          <PowerUpButton icon="🔀" label="Shuffle" count={gameState.powerUps.shuffle} onClick={() => activatePowerUp('shuffle')} />
-          <PowerUpButton icon="💣" label="Bomb" count={gameState.powerUps.bomb} onClick={() => activatePowerUp('bomb')} />
-          <PowerUpButton icon="⚡" label="Laser" count={gameState.powerUps.laser} onClick={() => activatePowerUp('laser')} />
-          <PowerUpButton icon="✦" label="Cross" count={gameState.powerUps.crossLaser} onClick={() => activatePowerUp('crossLaser')} />
-          <PowerUpButton icon="💥" label="Mine" count={gameState.powerUps.mine} onClick={() => activatePowerUp('mine')} />
-          <PowerUpButton icon="🔗" label="Link" count={gameState.powerUps.link} onClick={() => activatePowerUp('link')} />
+          <PowerUpButton icon="💡" label="Hint"    count={gameState.powerUps.hint}       locked={!unlockedPowerups.has('hint')}       unlockLevel={POWERUP_UNLOCK_LEVELS.hint}       onClick={() => activatePowerUp('hint')} />
+          <PowerUpButton icon="🔀" label="Shuffle" count={gameState.powerUps.shuffle}    locked={!unlockedPowerups.has('shuffle')}    unlockLevel={POWERUP_UNLOCK_LEVELS.shuffle}    onClick={() => activatePowerUp('shuffle')} />
+          <PowerUpButton icon="💣" label="Bomb"    count={gameState.powerUps.bomb}       locked={!unlockedPowerups.has('bomb')}       unlockLevel={POWERUP_UNLOCK_LEVELS.bomb}       onClick={() => activatePowerUp('bomb')} />
+          <PowerUpButton icon="⚡" label="Laser"   count={gameState.powerUps.laser}      locked={!unlockedPowerups.has('laser')}      unlockLevel={POWERUP_UNLOCK_LEVELS.laser}      onClick={() => activatePowerUp('laser')} />
+          <PowerUpButton icon="✦" label="Cross"    count={gameState.powerUps.crossLaser} locked={!unlockedPowerups.has('crossLaser')} unlockLevel={POWERUP_UNLOCK_LEVELS.crossLaser} onClick={() => activatePowerUp('crossLaser')} />
+          <PowerUpButton icon="💥" label="Mine"    count={gameState.powerUps.mine}       locked={!unlockedPowerups.has('mine')}       unlockLevel={POWERUP_UNLOCK_LEVELS.mine}       onClick={() => activatePowerUp('mine')} />
+          <PowerUpButton icon="🔗" label="Link"    count={gameState.powerUps.link}       locked={!unlockedPowerups.has('link')}       unlockLevel={POWERUP_UNLOCK_LEVELS.link}       onClick={() => activatePowerUp('link')} />
         </div>
 
         {/* Words found */}
@@ -781,25 +812,86 @@ function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
 }
 
 // --- Power-up Button ---
-function PowerUpButton({ icon, label, count, onClick }: {
-  icon: string; label: string; count: number; onClick: () => void;
+function PowerUpButton({ icon, label, count, locked = false, unlockLevel, onClick }: {
+  icon: string; label: string; count: number;
+  locked?: boolean; unlockLevel?: number; onClick: () => void;
 }) {
+  const isDisabled = locked || count <= 0;
   return (
-    <button
-      onClick={onClick}
-      disabled={count <= 0}
-      className={`relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border transition-all ${
-        count > 0
-          ? 'border-white/10 bg-white/5 hover:bg-white/10 hover:scale-105'
-          : 'border-white/5 bg-white/[0.02] opacity-30 cursor-not-allowed'
-      }`}
+    <div className="relative group">
+      <button
+        onClick={locked ? undefined : onClick}
+        disabled={isDisabled}
+        className={`relative flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl border transition-all ${
+          locked
+            ? 'border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed'
+            : count > 0
+              ? 'border-white/10 bg-white/5 hover:bg-white/10 hover:scale-105'
+              : 'border-white/5 bg-white/[0.02] opacity-30 cursor-not-allowed'
+        }`}
+      >
+        <span className="text-lg">{locked ? '🔒' : icon}</span>
+        <span className="text-[9px] text-white/50">{label}</span>
+        {!locked && (
+          <span className="absolute -top-1 -right-1 bg-white/10 text-white/70 text-[10px] font-mono w-4 h-4 rounded-full flex items-center justify-center">
+            {count}
+          </span>
+        )}
+      </button>
+      {/* Tooltip on hover for locked powerups */}
+      {locked && unlockLevel && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded-lg bg-black/90 border border-white/10 text-[9px] text-white/60 whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50">
+          Unlocks at level {unlockLevel}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Powerup Unlock Modal ---
+const POWERUP_DISPLAY: Record<PowerupName, { icon: string; label: string; desc: string }> = {
+  hint:       { icon: '💡', label: 'Hint',       desc: 'Reveals a valid word path' },
+  shuffle:    { icon: '🔀', label: 'Shuffle',    desc: 'Randomizes all tile letters' },
+  bomb:       { icon: '💣', label: 'Bomb',       desc: 'Clears a 3×3 area' },
+  laser:      { icon: '⚡', label: 'Laser',      desc: 'Clears a full row or column' },
+  mine:       { icon: '💥', label: 'Mine',       desc: 'Triggers a 3×3 explosion' },
+  crossLaser: { icon: '✦',  label: 'Cross Laser',desc: 'Clears a full row and column' },
+  link:       { icon: '🔗', label: 'Chain Link', desc: 'Links words into a chain combo' },
+};
+function PowerupUnlockModal({ names, onDismiss }: { names: PowerupName[]; onDismiss: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      onClick={onDismiss}
     >
-      <span className="text-lg">{icon}</span>
-      <span className="text-[9px] text-white/50">{label}</span>
-      <span className="absolute -top-1 -right-1 bg-white/10 text-white/70 text-[10px] font-mono w-4 h-4 rounded-full flex items-center justify-center">
-        {count}
-      </span>
-    </button>
+      <motion.div
+        initial={{ scale: 0.8, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.8, opacity: 0 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-[#0d1f19] border border-emerald-400/20 rounded-2xl px-8 py-7 max-w-sm w-full mx-4 text-center shadow-2xl"
+      >
+        <div className="text-3xl mb-2">🎉</div>
+        <h3 className="text-lg font-bold text-white mb-1">Power-Up Unlocked!</h3>
+        <p className="text-sm text-white/50 mb-5">You've unlocked {names.length > 1 ? 'new powers' : 'a new power'}:</p>
+        <div className="space-y-3 mb-6">
+          {names.map(name => {
+            const d = POWERUP_DISPLAY[name];
+            return (
+              <div key={name} className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3">
+                <span className="text-2xl">{d.icon}</span>
+                <div className="text-left">
+                  <div className="text-sm font-bold text-white">{d.label}</div>
+                  <div className="text-xs text-white/40">{d.desc}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <Button onClick={onDismiss} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold">
+          Awesome!
+        </Button>
+      </motion.div>
+    </motion.div>
   );
 }
 

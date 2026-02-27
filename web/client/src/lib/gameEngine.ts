@@ -92,18 +92,74 @@ export interface LevelConfig {
   starThresholds: { oneStar: number; twoStar: number; threeStar: number };
 }
 
+// Powerup unlock progression: which level completion unlocks each powerup.
+// Powerups not listed here are available from level 1.
+export type PowerupName = 'hint' | 'bomb' | 'laser' | 'crossLaser' | 'mine' | 'shuffle' | 'link';
+export const POWERUP_UNLOCK_LEVELS: Partial<Record<PowerupName, number>> = {
+  hint:       1,  // available from start
+  shuffle:    1,  // available from start
+  bomb:       2,  // unlocks after completing level 2
+  laser:      4,  // unlocks after completing level 4
+  mine:       6,  // unlocks after completing level 6
+  crossLaser: 8,  // unlocks after completing level 8
+  link:       10, // unlocks after completing level 10
+};
+
 export const LEVELS: LevelConfig[] = [
-  { levelNumber: 1, goalType: 'scoreTimed', boardSize: 7, targetScore: 100, timeLimitSeconds: 120, starThresholds: { oneStar: 100, twoStar: 200, threeStar: 350 } },
-  { levelNumber: 2, goalType: 'scoreTimed', boardSize: 7, targetScore: 200, timeLimitSeconds: 120, starThresholds: { oneStar: 200, twoStar: 350, threeStar: 500 } },
-  { levelNumber: 3, goalType: 'clearIceMoves', boardSize: 7, iceTilesToClearTarget: 5, moveLimit: 15, icePositions: [{ row: 2, col: 2 }, { row: 2, col: 4 }, { row: 4, col: 2 }, { row: 4, col: 4 }, { row: 3, col: 3 }], starThresholds: { oneStar: 50, twoStar: 100, threeStar: 200 } },
-  { levelNumber: 4, goalType: 'scoreTimed', boardSize: 7, targetScore: 350, timeLimitSeconds: 110, starThresholds: { oneStar: 350, twoStar: 500, threeStar: 700 } },
-  { levelNumber: 5, goalType: 'clearIceMoves', boardSize: 7, iceTilesToClearTarget: 8, moveLimit: 18, icePositions: [{ row: 1, col: 1 }, { row: 1, col: 5 }, { row: 2, col: 3 }, { row: 3, col: 1 }, { row: 3, col: 5 }, { row: 4, col: 3 }, { row: 5, col: 1 }, { row: 5, col: 5 }], starThresholds: { oneStar: 75, twoStar: 150, threeStar: 300 } },
-  { levelNumber: 6, goalType: 'scoreTimed', boardSize: 7, targetScore: 500, timeLimitSeconds: 100, starThresholds: { oneStar: 500, twoStar: 750, threeStar: 1000 } },
-  { levelNumber: 7, goalType: 'clearIceMoves', boardSize: 7, iceTilesToClearTarget: 10, moveLimit: 20, icePositions: [{ row: 0, col: 3 }, { row: 1, col: 2 }, { row: 1, col: 4 }, { row: 2, col: 1 }, { row: 2, col: 5 }, { row: 3, col: 0 }, { row: 3, col: 6 }, { row: 4, col: 1 }, { row: 4, col: 5 }, { row: 5, col: 3 }], starThresholds: { oneStar: 100, twoStar: 200, threeStar: 400 } },
-  { levelNumber: 8, goalType: 'scoreTimed', boardSize: 7, targetScore: 700, timeLimitSeconds: 90, starThresholds: { oneStar: 700, twoStar: 1000, threeStar: 1400 } },
-  { levelNumber: 9, goalType: 'clearIceMoves', boardSize: 7, iceTilesToClearTarget: 12, moveLimit: 22, icePositions: [{ row: 0, col: 2 }, { row: 0, col: 4 }, { row: 1, col: 1 }, { row: 1, col: 3 }, { row: 1, col: 5 }, { row: 2, col: 2 }, { row: 2, col: 4 }, { row: 4, col: 2 }, { row: 4, col: 4 }, { row: 5, col: 1 }, { row: 5, col: 5 }, { row: 6, col: 3 }], starThresholds: { oneStar: 150, twoStar: 300, threeStar: 500 } },
-  { levelNumber: 10, goalType: 'scoreTimed', boardSize: 7, targetScore: 1000, timeLimitSeconds: 90, starThresholds: { oneStar: 1000, twoStar: 1500, threeStar: 2000 } },
+  // Levels 1–3: 5×5 board — short, gentle introduction
+  { levelNumber: 1, goalType: 'scoreTimed',   boardSize: 5, targetScore: 80,  timeLimitSeconds: 120, starThresholds: { oneStar: 80,  twoStar: 140, threeStar: 220 } },
+  { levelNumber: 2, goalType: 'scoreTimed',   boardSize: 5, targetScore: 140, timeLimitSeconds: 120, starThresholds: { oneStar: 140, twoStar: 240, threeStar: 360 } },
+  { levelNumber: 3, goalType: 'clearIceMoves',boardSize: 5, iceTilesToClearTarget: 4, moveLimit: 14, icePositions: [{ row: 1, col: 1 }, { row: 1, col: 3 }, { row: 3, col: 1 }, { row: 3, col: 3 }], starThresholds: { oneStar: 50, twoStar: 100, threeStar: 180 } },
+  // Levels 4–6: 6×6 board — medium challenge
+  { levelNumber: 4, goalType: 'scoreTimed',   boardSize: 6, targetScore: 280, timeLimitSeconds: 110, starThresholds: { oneStar: 280, twoStar: 420, threeStar: 600 } },
+  { levelNumber: 5, goalType: 'clearIceMoves',boardSize: 6, iceTilesToClearTarget: 7, moveLimit: 18, icePositions: [{ row: 1, col: 1 }, { row: 1, col: 4 }, { row: 2, col: 2 }, { row: 3, col: 1 }, { row: 3, col: 4 }, { row: 4, col: 2 }, { row: 4, col: 4 }], starThresholds: { oneStar: 75, twoStar: 150, threeStar: 280 } },
+  { levelNumber: 6, goalType: 'scoreTimed',   boardSize: 6, targetScore: 420, timeLimitSeconds: 100, starThresholds: { oneStar: 420, twoStar: 620, threeStar: 880 } },
+  // Levels 7–10: 7×7 board — full board, expert play
+  { levelNumber: 7,  goalType: 'clearIceMoves',boardSize: 7, iceTilesToClearTarget: 10, moveLimit: 20, icePositions: [{ row: 0, col: 3 }, { row: 1, col: 2 }, { row: 1, col: 4 }, { row: 2, col: 1 }, { row: 2, col: 5 }, { row: 3, col: 0 }, { row: 3, col: 6 }, { row: 4, col: 1 }, { row: 4, col: 5 }, { row: 5, col: 3 }], starThresholds: { oneStar: 100, twoStar: 200, threeStar: 400 } },
+  { levelNumber: 8,  goalType: 'scoreTimed',   boardSize: 7, targetScore: 700,  timeLimitSeconds: 90, starThresholds: { oneStar: 700,  twoStar: 1000, threeStar: 1400 } },
+  { levelNumber: 9,  goalType: 'clearIceMoves',boardSize: 7, iceTilesToClearTarget: 12, moveLimit: 22, icePositions: [{ row: 0, col: 2 }, { row: 0, col: 4 }, { row: 1, col: 1 }, { row: 1, col: 3 }, { row: 1, col: 5 }, { row: 2, col: 2 }, { row: 2, col: 4 }, { row: 4, col: 2 }, { row: 4, col: 4 }, { row: 5, col: 1 }, { row: 5, col: 5 }, { row: 6, col: 3 }], starThresholds: { oneStar: 150, twoStar: 300, threeStar: 500 } },
+  { levelNumber: 10, goalType: 'scoreTimed',   boardSize: 7, targetScore: 1000, timeLimitSeconds: 90, starThresholds: { oneStar: 1000, twoStar: 1500, threeStar: 2000 } },
 ];
+
+// --- Powerup unlock persistence ---
+const UNLOCK_STORAGE_KEY = 'worddash_powerup_unlocks';
+
+/** Returns the set of powerup names currently unlocked (persisted in localStorage). */
+export function loadUnlockedPowerups(): Set<PowerupName> {
+  try {
+    const raw = localStorage.getItem(UNLOCK_STORAGE_KEY);
+    if (raw) {
+      const arr: PowerupName[] = JSON.parse(raw);
+      return new Set(arr);
+    }
+  } catch {}
+  // Default: powerups with unlockLevel === 1 (or undefined) are always available
+  const defaults = new Set<PowerupName>();
+  for (const [name, level] of Object.entries(POWERUP_UNLOCK_LEVELS) as [PowerupName, number][]) {
+    if (level <= 1) defaults.add(name);
+  }
+  return defaults;
+}
+
+export function saveUnlockedPowerups(unlocked: Set<PowerupName>): void {
+  try {
+    localStorage.setItem(UNLOCK_STORAGE_KEY, JSON.stringify([...unlocked]));
+  } catch {}
+}
+
+/**
+ * Given the just-completed level number, returns the list of newly unlocked powerup names.
+ * Caller is responsible for merging these into the persisted set.
+ */
+export function getNewlyUnlockedPowerups(completedLevel: number, alreadyUnlocked: Set<PowerupName>): PowerupName[] {
+  const newlyUnlocked: PowerupName[] = [];
+  for (const [name, unlockLevel] of Object.entries(POWERUP_UNLOCK_LEVELS) as [PowerupName, number][]) {
+    if (completedLevel >= unlockLevel && !alreadyUnlocked.has(name)) {
+      newlyUnlocked.push(name);
+    }
+  }
+  return newlyUnlocked;
+}
 
 // --- Scoring helpers ---
 export function lengthMultiplier(len: number): number {
