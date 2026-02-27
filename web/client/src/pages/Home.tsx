@@ -136,9 +136,10 @@ export default function Home() {
     }
   }, []);
 
-  // Timer for timed levels
+  // Timer for timed levels (scoreTimed and scoreTimedIce both need a countdown)
   useEffect(() => {
-    if (screen === 'game' && gameState && gameState.level.goalType === 'scoreTimed' && !gameState.isGameOver) {
+    const haTimer = gameState?.level.goalType === 'scoreTimed' || gameState?.level.goalType === 'scoreTimedIce';
+    if (screen === 'game' && gameState && haTimer && !gameState.isGameOver) {
       timerRef.current = setInterval(() => {
         setGameState(prev => {
           if (!prev || prev.isGameOver || !prev.timerStarted) return prev;
@@ -160,7 +161,7 @@ export default function Home() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [screen, gameState?.isGameOver, gameState?.level.goalType]);
+  }, [screen, gameState?.isGameOver, gameState?.level?.goalType]);
 
   // Handle game over transition
   useEffect(() => {
@@ -357,7 +358,7 @@ export default function Home() {
               toast.info('Test Mode OFF', { duration: 2000 });
             }
           }} />}
-          {screen === 'store' && <StoreScreen key="store" onBack={() => setScreen('menu')} />}
+          {screen === 'store' && <StoreScreen key="store" onBack={() => setScreen('menu')} unlockedPowerups={unlockedPowerups} />}
           {screen === 'levels' && (
             <LevelSelectScreen key="levels" onBack={() => setScreen('menu')} onSelectLevel={startLevel} bestScores={bestScores} testMode={testMode} />
           )}
@@ -514,21 +515,22 @@ function MenuScreen({ onPlay, onStore, onStats, onSettings, testMode, onToggleTe
 }
 
 // --- Store Screen ---
-function StoreScreen({ onBack }: { onBack: () => void }) {
+function StoreScreen({ onBack, unlockedPowerups }: { onBack: () => void; unlockedPowerups: Set<PowerupName> }) {
   const [inventory, setInventory] = useState<PowerupInventory>(loadInventory());
   const [, forceUpdate] = useState(0);
 
-  const powerups = [
-    { key: 'link' as const, icon: '🔗', name: 'Chain Link', desc: 'Starts Chain Mode; overlap words to build a multiplier', cost: GameEconomyConfig.storePrices.link },
-    { key: 'hint' as const, icon: '💡', name: 'Hint', desc: 'Highlights a valid word on the board', cost: GameEconomyConfig.storePrices.hint },
-    { key: 'bomb' as const, icon: '💣', name: 'Bomb', desc: 'Places a bomb tile that clears 3×3', cost: GameEconomyConfig.storePrices.bomb },
-    { key: 'laser' as const, icon: '⚡', name: 'Laser', desc: 'Places a laser tile that clears a row or column', cost: GameEconomyConfig.storePrices.laser },
-    { key: 'crossLaser' as const, icon: '✦', name: 'Cross Laser', desc: 'Places a cross laser that clears row + column', cost: GameEconomyConfig.storePrices.crossLaser },
-    { key: 'mine' as const, icon: '💥', name: 'Mine', desc: 'Places a mine that detonates on clear', cost: GameEconomyConfig.storePrices.mine },
+  const powerups: { key: PowerupName; icon: string; name: string; desc: string; cost: number; unlockLevel: number }[] = [
+    { key: 'hint',       icon: '💡', name: 'Hint',        desc: 'Highlights a valid word on the board',               cost: GameEconomyConfig.storePrices.hint,       unlockLevel: POWERUP_UNLOCK_LEVELS.hint!       },
+    { key: 'shuffle',    icon: '🔀', name: 'Shuffle',     desc: 'Randomizes all tile letters',                        cost: GameEconomyConfig.storePrices.hint,       unlockLevel: POWERUP_UNLOCK_LEVELS.shuffle!    },
+    { key: 'bomb',       icon: '💣', name: 'Bomb',        desc: 'Places a bomb tile that clears 3×3',                 cost: GameEconomyConfig.storePrices.bomb,       unlockLevel: POWERUP_UNLOCK_LEVELS.bomb!       },
+    { key: 'laser',      icon: '⚡', name: 'Laser',       desc: 'Places a laser tile that clears a row or column',    cost: GameEconomyConfig.storePrices.laser,      unlockLevel: POWERUP_UNLOCK_LEVELS.laser!      },
+    { key: 'mine',       icon: '💥', name: 'Mine',        desc: 'Places a mine that detonates on clear',              cost: GameEconomyConfig.storePrices.mine,       unlockLevel: POWERUP_UNLOCK_LEVELS.mine!       },
+    { key: 'crossLaser', icon: '✦',  name: 'Cross Laser', desc: 'Places a cross laser that clears row + column',      cost: GameEconomyConfig.storePrices.crossLaser, unlockLevel: POWERUP_UNLOCK_LEVELS.crossLaser! },
+    { key: 'link',       icon: '🔗', name: 'Chain Link',  desc: 'Starts Chain Mode; overlap words to build a mult.',  cost: GameEconomyConfig.storePrices.link,       unlockLevel: POWERUP_UNLOCK_LEVELS.link!       },
   ];
 
-  const handlePurchase = (key: keyof PowerupInventory) => {
-    const success = purchasePowerup(key);
+  const handlePurchase = (key: PowerupName) => {
+    const success = purchasePowerup(key as keyof PowerupInventory);
     if (success) {
       setInventory(loadInventory());
       forceUpdate(n => n + 1);
@@ -547,38 +549,48 @@ function StoreScreen({ onBack }: { onBack: () => void }) {
           <CoinDisplay size="sm" />
         </div>
 
-        <p className="text-xs text-cyan-300/80 mb-3">New: 🔗 Chain Link power-up (starts Chain Mode)</p>
+        <p className="text-xs text-white/30 mb-4">Complete levels to unlock new power-ups for purchase.</p>
 
         <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
           {powerups.map((pu) => {
-            const owned = inventory[pu.key];
-            const affordable = CoinManager.canAfford(pu.cost);
+            const isUnlocked = unlockedPowerups.has(pu.key);
+            const owned = isUnlocked ? (inventory[pu.key as keyof PowerupInventory] ?? 0) : 0;
+            const affordable = isUnlocked && CoinManager.canAfford(pu.cost);
             return (
               <motion.div
                 key={pu.key}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-4 p-4 rounded-xl border border-emerald-200/10 bg-black/20 backdrop-blur-sm shadow-lg shadow-black/20"
+                className={`flex items-center gap-4 p-4 rounded-xl border backdrop-blur-sm shadow-lg shadow-black/20 transition-all ${
+                  isUnlocked
+                    ? 'border-emerald-200/10 bg-black/20'
+                    : 'border-white/5 bg-white/[0.02] opacity-60'
+                }`}
               >
-                <div className="text-3xl w-12 text-center">{pu.icon}</div>
+                <div className="text-3xl w-12 text-center">{isUnlocked ? pu.icon : '🔒'}</div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-bold">{pu.name}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/50 font-mono">×{owned}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`font-bold ${isUnlocked ? 'text-white' : 'text-white/40'}`}>{pu.name}</span>
+                    {isUnlocked
+                      ? <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/50 font-mono">×{owned}</span>
+                      : <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400/70 font-mono">Level {pu.unlockLevel}</span>
+                    }
                   </div>
-                  <p className="text-xs text-white/40 mt-0.5">{pu.desc}</p>
+                  <p className="text-xs text-white/40 mt-0.5">{isUnlocked ? pu.desc : `Unlocks after completing level ${pu.unlockLevel}`}</p>
                 </div>
                 <Button
-                  onClick={() => handlePurchase(pu.key)}
+                  onClick={() => isUnlocked && handlePurchase(pu.key)}
                   disabled={!affordable}
                   size="sm"
-                  className={`rounded-lg font-bold ${
-                    affordable
-                      ? 'bg-amber-500 hover:bg-amber-400 text-black'
-                      : 'bg-white/10 text-white/30 cursor-not-allowed'
+                  className={`rounded-lg font-bold min-w-[72px] ${
+                    !isUnlocked
+                      ? 'bg-white/5 text-white/20 cursor-not-allowed'
+                      : affordable
+                        ? 'bg-amber-500 hover:bg-amber-400 text-black'
+                        : 'bg-white/10 text-white/30 cursor-not-allowed'
                   }`}
                 >
-                  🪙 {pu.cost}
+                  {isUnlocked ? `🪙 ${pu.cost}` : '🔒'}
                 </Button>
               </motion.div>
             );
@@ -604,44 +616,55 @@ function LevelSelectScreen({ onBack, onSelectLevel, bestScores, testMode = false
           <h2 className="text-xl font-bold text-white">Select Level</h2>
           <CoinDisplay size="sm" />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          {LEVELS.map((level) => {
-            const best = bestScores[level.levelNumber];
-            const prevBest = bestScores[level.levelNumber - 1];
-            const isUnlocked = testMode || level.levelNumber === 1 || !!prevBest;
-            return (
-              <motion.button
-                key={level.levelNumber}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: level.levelNumber * 0.05 }}
-                onClick={() => isUnlocked && onSelectLevel(level)}
-                disabled={!isUnlocked}
-                className={`relative p-5 rounded-xl border transition-all ${
-                  isUnlocked
-                    ? 'border-emerald-200/10 bg-black/20 backdrop-blur-sm hover:bg-black/30 hover:border-emerald-400/35 hover:shadow-lg hover:shadow-emerald-900/20'
-                    : 'border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed'
-                }`}
-              >
-                <div className="text-2xl font-bold text-white mb-1">{level.levelNumber}</div>
-                {/* Board size badge */}
-                <div className="text-[9px] text-white/25 font-mono mb-1">{level.boardSize}×{level.boardSize}</div>
-                <div className="text-xs text-white/40 mb-2">
-                  {level.goalType === 'scoreTimed' ? `Score ${level.targetScore}` : `Clear ${level.iceTilesToClearTarget} ice`}
-                </div>
-                <div className="flex gap-1 justify-center">
-                  {[1, 2, 3].map(s => (
-                    <span key={s} className={`text-sm ${best && best.stars >= s ? 'text-amber-400' : 'text-white/15'}`}>★</span>
-                  ))}
-                </div>
-                {best && <div className="text-[10px] text-white/30 mt-1 font-mono">Best: {best.score}</div>}
-                {!isUnlocked && (
-                  <div className="absolute inset-0 flex items-center justify-center"><span className="text-2xl">🔒</span></div>
-                )}
-              </motion.button>
-            );
-          })}
-        </div>
+        {/* World groupings */}
+        {[
+          { label: 'World 1', levels: LEVELS.slice(0, 10),  color: 'text-emerald-400' },
+          { label: 'World 2', levels: LEVELS.slice(10, 20), color: 'text-sky-400' },
+          { label: 'World 3', levels: LEVELS.slice(20, 35), color: 'text-violet-400' },
+          { label: 'World 4', levels: LEVELS.slice(35, 50), color: 'text-amber-400' },
+        ].map(world => (
+          <div key={world.label} className="mb-6">
+            <h3 className={`text-xs font-bold tracking-widest uppercase mb-3 ${world.color}`}>{world.label} — {world.levels[0].boardSize}×{world.levels[0].boardSize}</h3>
+            <div className="grid grid-cols-5 gap-2">
+              {world.levels.map((level) => {
+                const best = bestScores[level.levelNumber];
+                const prevBest = bestScores[level.levelNumber - 1];
+                const isUnlocked = testMode || level.levelNumber === 1 || !!prevBest;
+                const goalIcon =
+                  level.goalType === 'scoreTimed'    ? '⏱' :
+                  level.goalType === 'clearIceMoves' ? '❄' :
+                  level.goalType === 'scoreMove'     ? '👣' :
+                  level.goalType === 'scoreTimedIce' ? '⏱❄' : '👣❄';
+                return (
+                  <motion.button
+                    key={level.levelNumber}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: (level.levelNumber % 10) * 0.03 }}
+                    onClick={() => isUnlocked && onSelectLevel(level)}
+                    disabled={!isUnlocked}
+                    className={`relative flex flex-col items-center p-2 rounded-xl border transition-all aspect-square justify-center ${
+                      isUnlocked
+                        ? 'border-emerald-200/10 bg-black/20 backdrop-blur-sm hover:bg-black/35 hover:border-emerald-400/35 hover:scale-105'
+                        : 'border-white/5 bg-white/[0.02] opacity-40 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="text-base font-bold text-white leading-none">{level.levelNumber}</div>
+                    <div className="text-[8px] text-white/30 mt-0.5">{goalIcon}</div>
+                    <div className="flex gap-0.5 mt-1">
+                      {[1, 2, 3].map(s => (
+                        <span key={s} className={`text-[8px] ${best && best.stars >= s ? 'text-amber-400' : 'text-white/15'}`}>★</span>
+                      ))}
+                    </div>
+                    {!isUnlocked && (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/30"><span className="text-lg">🔒</span></div>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </motion.div>
   );
@@ -656,11 +679,16 @@ function GameScreen({ gameState, unlockedPowerups, onStateChange, onWordSubmitte
   onQuit: () => void;
 }) {
   const level = gameState.level;
-  const isTimedLevel = level.goalType === 'scoreTimed';
+  const g = level.goalType;
+  const isTimedLevel = g === 'scoreTimed' || g === 'scoreTimedIce';
+  const hasMoveLimit = g === 'clearIceMoves' || g === 'scoreMove' || g === 'scoreMoveIce';
+  const hasIceGoal   = g === 'clearIceMoves' || g === 'scoreTimedIce' || g === 'scoreMoveIce';
+  const hasScoreGoal = g === 'scoreTimed'    || g === 'scoreMove'     || g === 'scoreTimedIce' || g === 'scoreMoveIce';
 
-  const progressPercent = isTimedLevel
-    ? (gameState.score / (level.targetScore || 1)) * 100
-    : (gameState.iceCleared / Math.max(gameState.totalIce, 1)) * 100;
+  // Progress bar: for combo goals use average of sub-goal completions
+  const scoreProgress = hasScoreGoal ? (gameState.score / (level.targetScore || 1)) * 100 : 100;
+  const iceProgress   = hasIceGoal   ? (gameState.iceCleared / Math.max(gameState.totalIce, 1)) * 100 : 100;
+  const progressPercent = (scoreProgress + iceProgress) / ((hasScoreGoal && hasIceGoal) ? 2 : 1);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -719,21 +747,29 @@ function GameScreen({ gameState, unlockedPowerups, onStateChange, onWordSubmitte
           <div className="text-center">
             <div className="text-xs text-white/40">Level {level.levelNumber}</div>
             <div className="text-xs text-white/30">
-              {isTimedLevel ? `Score ${level.targetScore}` : `Clear ${level.iceTilesToClearTarget} ice`}
+              {g === 'scoreTimed'    && `Score ${level.targetScore}`}
+              {g === 'clearIceMoves' && `Clear ${level.iceTilesToClearTarget} ice`}
+              {g === 'scoreMove'     && `Score ${level.targetScore} / ${level.moveLimit}mv`}
+              {g === 'scoreTimedIce' && `Score ${level.targetScore} + ${level.iceTilesToClearTarget} ice`}
+              {g === 'scoreMoveIce'  && `Score ${level.targetScore} + ${level.iceTilesToClearTarget} ice`}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <CoinDisplay size="sm" />
-            {isTimedLevel ? (
-              <div className={`font-mono text-sm font-bold ${gameState.timeRemaining <= 10 && gameState.timerStarted ? 'text-red-400 animate-pulse' : 'text-white/70'}`}>
-                {formatTime(gameState.timeRemaining)}
-                {!gameState.timerStarted && <span className="text-[9px] text-white/30 block">starts on play</span>}
-              </div>
-            ) : (
-              <div className="font-mono text-sm text-white/70">
-                <span className={gameState.movesRemaining <= 3 ? 'text-red-400 font-bold' : ''}>{gameState.movesRemaining}</span> moves
-              </div>
-            )}
+            <div className="flex flex-col items-end gap-0.5">
+              {isTimedLevel && (
+                <div className={`font-mono text-sm font-bold ${gameState.timeRemaining <= 10 && gameState.timerStarted ? 'text-red-400 animate-pulse' : 'text-white/70'}`}>
+                  {formatTime(gameState.timeRemaining)}
+                  {!gameState.timerStarted && <span className="text-[9px] text-white/30 block">starts on play</span>}
+                </div>
+              )}
+              {hasMoveLimit && (
+                <div className="font-mono text-sm text-white/70">
+                  <span className={gameState.movesRemaining <= 3 ? 'text-red-400 font-bold' : ''}>{gameState.movesRemaining}</span>
+                  <span className="text-white/40 text-xs"> mv</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -762,7 +798,7 @@ function GameScreen({ gameState, unlockedPowerups, onStateChange, onWordSubmitte
                 🔗 Chain {gameState.chainMode.chainWordCount}W • Base {gameState.chainMode.chainBasePoints}
               </motion.span>
             )}
-            {!isTimedLevel && (
+            {hasIceGoal && (
               <span className="text-xs text-cyan-300">❄ {gameState.iceCleared}/{gameState.totalIce}</span>
             )}
           </div>

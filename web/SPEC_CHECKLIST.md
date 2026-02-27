@@ -107,15 +107,19 @@
 
 ## Level System (Data-Driven)
 
-- [x] Levels 1–10 defined as config data (JSON-equivalent in code)
-- [x] Support goal type A: scoreTimed (TargetScore, TimeLimitSeconds)
-- [x] Support goal type B: clearIceMoves (IceTilesToClearTarget, MoveLimit, IcePositions)
+- [x] 50 levels across 4 worlds with increasing difficulty
+- [x] Goal type A: scoreTimed — reach targetScore before time runs out
+- [x] Goal type B: clearIceMoves — clear all ice within moveLimit
+- [x] Goal type C: scoreMove — reach targetScore within moveLimit (no timer)
+- [x] Goal type D: scoreTimedIce — reach targetScore AND clear all ice before time runs out
+- [x] Goal type E: scoreMoveIce — reach targetScore AND clear all ice within moveLimit
 - [x] Ice blocker (2-hit): first clearing event → crack; second → clear
 - [x] Ice tiles can be used in word paths
-- [x] Mix of scoreTimed and clearIceMoves across levels 1–10
-- [x] Board size progression per level: 5×5 (L1–3) → 6×6 (L4–6) → 7×7 (L7–10)
+- [x] All 5 goal types mixed across 50 levels
+- [x] Board size: World 1 (L1–10) = 5×5, World 2 (L11–20) = 6×6, Worlds 3–4 (L21–50) = 7×7
 - [x] All systems adapt to variable board size (gravity, refill, adjacency, scoring, UI)
-- [x] Level select card shows board size (NxN badge)
+- [x] Level select groups by world with goal-type icons (⏱ ❄ 👣 combos)
+- [x] HUD shows timer and/or move counter depending on active goal type
 
 ---
 
@@ -282,6 +286,7 @@
 - [x] Mine: 125 coins
 - [x] Purchase flow: check canAfford → deduct → increase inventory → animate → confirm
 - [x] Inventory persisted locally
+- [x] Store gates items by unlock state — locked powerups show 🔒 with unlock level badge, purchase disabled
 
 ---
 

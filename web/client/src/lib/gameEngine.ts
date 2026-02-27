@@ -78,7 +78,13 @@ export function createTile(letter: string, row: number, col: number, specialType
 }
 
 // --- Level config ---
-export type GoalType = 'scoreTimed' | 'clearIceMoves';
+// Goal types:
+//   scoreTimed       — reach targetScore before time runs out
+//   clearIceMoves    — clear all ice within moveLimit
+//   scoreMove        — reach targetScore within moveLimit (no timer)
+//   scoreTimed+Ice   — reach targetScore AND clear all ice before time runs out
+//   scoreMove+Ice    — reach targetScore AND clear all ice within moveLimit
+export type GoalType = 'scoreTimed' | 'clearIceMoves' | 'scoreMove' | 'scoreTimedIce' | 'scoreMoveIce';
 
 export interface LevelConfig {
   levelNumber: number;
@@ -106,19 +112,73 @@ export const POWERUP_UNLOCK_LEVELS: Partial<Record<PowerupName, number>> = {
 };
 
 export const LEVELS: LevelConfig[] = [
-  // Levels 1–3: 5×5 board — short, gentle introduction
-  { levelNumber: 1, goalType: 'scoreTimed',   boardSize: 5, targetScore: 80,  timeLimitSeconds: 120, starThresholds: { oneStar: 80,  twoStar: 140, threeStar: 220 } },
-  { levelNumber: 2, goalType: 'scoreTimed',   boardSize: 5, targetScore: 140, timeLimitSeconds: 120, starThresholds: { oneStar: 140, twoStar: 240, threeStar: 360 } },
-  { levelNumber: 3, goalType: 'clearIceMoves',boardSize: 5, iceTilesToClearTarget: 4, moveLimit: 14, icePositions: [{ row: 1, col: 1 }, { row: 1, col: 3 }, { row: 3, col: 1 }, { row: 3, col: 3 }], starThresholds: { oneStar: 50, twoStar: 100, threeStar: 180 } },
-  // Levels 4–6: 6×6 board — medium challenge
-  { levelNumber: 4, goalType: 'scoreTimed',   boardSize: 6, targetScore: 280, timeLimitSeconds: 110, starThresholds: { oneStar: 280, twoStar: 420, threeStar: 600 } },
-  { levelNumber: 5, goalType: 'clearIceMoves',boardSize: 6, iceTilesToClearTarget: 7, moveLimit: 18, icePositions: [{ row: 1, col: 1 }, { row: 1, col: 4 }, { row: 2, col: 2 }, { row: 3, col: 1 }, { row: 3, col: 4 }, { row: 4, col: 2 }, { row: 4, col: 4 }], starThresholds: { oneStar: 75, twoStar: 150, threeStar: 280 } },
-  { levelNumber: 6, goalType: 'scoreTimed',   boardSize: 6, targetScore: 420, timeLimitSeconds: 100, starThresholds: { oneStar: 420, twoStar: 620, threeStar: 880 } },
-  // Levels 7–10: 7×7 board — full board, expert play
-  { levelNumber: 7,  goalType: 'clearIceMoves',boardSize: 7, iceTilesToClearTarget: 10, moveLimit: 20, icePositions: [{ row: 0, col: 3 }, { row: 1, col: 2 }, { row: 1, col: 4 }, { row: 2, col: 1 }, { row: 2, col: 5 }, { row: 3, col: 0 }, { row: 3, col: 6 }, { row: 4, col: 1 }, { row: 4, col: 5 }, { row: 5, col: 3 }], starThresholds: { oneStar: 100, twoStar: 200, threeStar: 400 } },
-  { levelNumber: 8,  goalType: 'scoreTimed',   boardSize: 7, targetScore: 700,  timeLimitSeconds: 90, starThresholds: { oneStar: 700,  twoStar: 1000, threeStar: 1400 } },
-  { levelNumber: 9,  goalType: 'clearIceMoves',boardSize: 7, iceTilesToClearTarget: 12, moveLimit: 22, icePositions: [{ row: 0, col: 2 }, { row: 0, col: 4 }, { row: 1, col: 1 }, { row: 1, col: 3 }, { row: 1, col: 5 }, { row: 2, col: 2 }, { row: 2, col: 4 }, { row: 4, col: 2 }, { row: 4, col: 4 }, { row: 5, col: 1 }, { row: 5, col: 5 }, { row: 6, col: 3 }], starThresholds: { oneStar: 150, twoStar: 300, threeStar: 500 } },
-  { levelNumber: 10, goalType: 'scoreTimed',   boardSize: 7, targetScore: 1000, timeLimitSeconds: 90, starThresholds: { oneStar: 1000, twoStar: 1500, threeStar: 2000 } },
+  // ── WORLD 1 (L1–10): 5×5 board, intro ──────────────────────────────────────
+  // L1–2: scoreTimed warm-up
+  { levelNumber: 1,  goalType: 'scoreTimed',    boardSize: 5, targetScore: 80,  timeLimitSeconds: 120, starThresholds: { oneStar: 80,  twoStar: 140, threeStar: 220 } },
+  { levelNumber: 2,  goalType: 'scoreTimed',    boardSize: 5, targetScore: 140, timeLimitSeconds: 120, starThresholds: { oneStar: 140, twoStar: 240, threeStar: 360 } },
+  // L3: first ice level (move-based)
+  { levelNumber: 3,  goalType: 'clearIceMoves', boardSize: 5, iceTilesToClearTarget: 4,  moveLimit: 14, icePositions: [{ row: 1, col: 1 }, { row: 1, col: 3 }, { row: 3, col: 1 }, { row: 3, col: 3 }], starThresholds: { oneStar: 50, twoStar: 100, threeStar: 180 } },
+  // L4: scoreMove (score within move limit, no timer)
+  { levelNumber: 4,  goalType: 'scoreMove',     boardSize: 5, targetScore: 160, moveLimit: 12, starThresholds: { oneStar: 160, twoStar: 260, threeStar: 380 } },
+  // L5: scoreTimed harder
+  { levelNumber: 5,  goalType: 'scoreTimed',    boardSize: 5, targetScore: 200, timeLimitSeconds: 110, starThresholds: { oneStar: 200, twoStar: 320, threeStar: 460 } },
+  // L6: clearIceMoves slightly harder
+  { levelNumber: 6,  goalType: 'clearIceMoves', boardSize: 5, iceTilesToClearTarget: 5,  moveLimit: 14, icePositions: [{ row: 0, col: 2 }, { row: 2, col: 0 }, { row: 2, col: 4 }, { row: 4, col: 2 }, { row: 2, col: 2 }], starThresholds: { oneStar: 60, twoStar: 120, threeStar: 220 } },
+  // L7: scoreMove tighter budget
+  { levelNumber: 7,  goalType: 'scoreMove',     boardSize: 5, targetScore: 220, moveLimit: 10, starThresholds: { oneStar: 220, twoStar: 340, threeStar: 480 } },
+  // L8: first scoreTimedIce combo — score AND clear ice before time
+  { levelNumber: 8,  goalType: 'scoreTimedIce', boardSize: 5, targetScore: 120, timeLimitSeconds: 120, iceTilesToClearTarget: 3, icePositions: [{ row: 1, col: 2 }, { row: 3, col: 1 }, { row: 3, col: 3 }], starThresholds: { oneStar: 120, twoStar: 200, threeStar: 300 } },
+  // L9: scoreTimed pressure ramp
+  { levelNumber: 9,  goalType: 'scoreTimed',    boardSize: 5, targetScore: 260, timeLimitSeconds: 100, starThresholds: { oneStar: 260, twoStar: 400, threeStar: 560 } },
+  // L10: first scoreMoveIce combo
+  { levelNumber: 10, goalType: 'scoreMoveIce',  boardSize: 5, targetScore: 180, moveLimit: 14, iceTilesToClearTarget: 4, icePositions: [{ row: 0, col: 1 }, { row: 0, col: 3 }, { row: 4, col: 1 }, { row: 4, col: 3 }], starThresholds: { oneStar: 180, twoStar: 280, threeStar: 400 } },
+
+  // ── WORLD 2 (L11–20): 6×6 board, building challenge ────────────────────────
+  { levelNumber: 11, goalType: 'scoreTimed',    boardSize: 6, targetScore: 300, timeLimitSeconds: 120, starThresholds: { oneStar: 300, twoStar: 460, threeStar: 660 } },
+  { levelNumber: 12, goalType: 'clearIceMoves', boardSize: 6, iceTilesToClearTarget: 6,  moveLimit: 16, icePositions: [{ row: 1, col: 1 }, { row: 1, col: 4 }, { row: 3, col: 0 }, { row: 3, col: 5 }, { row: 5, col: 2 }, { row: 5, col: 3 }], starThresholds: { oneStar: 80, twoStar: 160, threeStar: 300 } },
+  { levelNumber: 13, goalType: 'scoreMove',     boardSize: 6, targetScore: 320, moveLimit: 14, starThresholds: { oneStar: 320, twoStar: 500, threeStar: 720 } },
+  { levelNumber: 14, goalType: 'scoreTimedIce', boardSize: 6, targetScore: 200, timeLimitSeconds: 120, iceTilesToClearTarget: 4, icePositions: [{ row: 0, col: 0 }, { row: 0, col: 5 }, { row: 5, col: 0 }, { row: 5, col: 5 }], starThresholds: { oneStar: 200, twoStar: 340, threeStar: 500 } },
+  { levelNumber: 15, goalType: 'scoreTimed',    boardSize: 6, targetScore: 400, timeLimitSeconds: 110, starThresholds: { oneStar: 400, twoStar: 600, threeStar: 850 } },
+  { levelNumber: 16, goalType: 'clearIceMoves', boardSize: 6, iceTilesToClearTarget: 8,  moveLimit: 18, icePositions: [{ row: 0, col: 2 }, { row: 0, col: 3 }, { row: 2, col: 0 }, { row: 2, col: 5 }, { row: 3, col: 0 }, { row: 3, col: 5 }, { row: 5, col: 2 }, { row: 5, col: 3 }], starThresholds: { oneStar: 100, twoStar: 200, threeStar: 360 } },
+  { levelNumber: 17, goalType: 'scoreMoveIce',  boardSize: 6, targetScore: 260, moveLimit: 16, iceTilesToClearTarget: 5, icePositions: [{ row: 1, col: 1 }, { row: 1, col: 4 }, { row: 3, col: 2 }, { row: 3, col: 3 }, { row: 5, col: 0 }], starThresholds: { oneStar: 260, twoStar: 400, threeStar: 580 } },
+  { levelNumber: 18, goalType: 'scoreTimedIce', boardSize: 6, targetScore: 300, timeLimitSeconds: 110, iceTilesToClearTarget: 6, icePositions: [{ row: 0, col: 1 }, { row: 0, col: 4 }, { row: 2, col: 2 }, { row: 2, col: 3 }, { row: 4, col: 1 }, { row: 4, col: 4 }], starThresholds: { oneStar: 300, twoStar: 480, threeStar: 700 } },
+  { levelNumber: 19, goalType: 'scoreMove',     boardSize: 6, targetScore: 420, moveLimit: 12, starThresholds: { oneStar: 420, twoStar: 640, threeStar: 900 } },
+  { levelNumber: 20, goalType: 'scoreTimed',    boardSize: 6, targetScore: 520, timeLimitSeconds: 100, starThresholds: { oneStar: 520, twoStar: 780, threeStar: 1100 } },
+
+  // ── WORLD 3 (L21–35): 7×7 board, veteran challenge ─────────────────────────
+  { levelNumber: 21, goalType: 'scoreTimed',    boardSize: 7, targetScore: 650, timeLimitSeconds: 120, starThresholds: { oneStar: 650, twoStar: 950, threeStar: 1300 } },
+  { levelNumber: 22, goalType: 'clearIceMoves', boardSize: 7, iceTilesToClearTarget: 10, moveLimit: 20, icePositions: [{ row: 0, col: 3 }, { row: 1, col: 2 }, { row: 1, col: 4 }, { row: 2, col: 1 }, { row: 2, col: 5 }, { row: 3, col: 0 }, { row: 3, col: 6 }, { row: 4, col: 1 }, { row: 4, col: 5 }, { row: 5, col: 3 }], starThresholds: { oneStar: 120, twoStar: 240, threeStar: 440 } },
+  { levelNumber: 23, goalType: 'scoreMove',     boardSize: 7, targetScore: 600, moveLimit: 14, starThresholds: { oneStar: 600, twoStar: 900, threeStar: 1250 } },
+  { levelNumber: 24, goalType: 'scoreTimedIce', boardSize: 7, targetScore: 400, timeLimitSeconds: 120, iceTilesToClearTarget: 6, icePositions: [{ row: 1, col: 1 }, { row: 1, col: 5 }, { row: 3, col: 0 }, { row: 3, col: 6 }, { row: 5, col: 2 }, { row: 5, col: 4 }], starThresholds: { oneStar: 400, twoStar: 620, threeStar: 900 } },
+  { levelNumber: 25, goalType: 'scoreMoveIce',  boardSize: 7, targetScore: 400, moveLimit: 18, iceTilesToClearTarget: 7, icePositions: [{ row: 0, col: 0 }, { row: 0, col: 6 }, { row: 2, col: 3 }, { row: 3, col: 1 }, { row: 3, col: 5 }, { row: 5, col: 3 }, { row: 6, col: 6 }], starThresholds: { oneStar: 400, twoStar: 620, threeStar: 880 } },
+  { levelNumber: 26, goalType: 'scoreTimed',    boardSize: 7, targetScore: 800, timeLimitSeconds: 110, starThresholds: { oneStar: 800, twoStar: 1150, threeStar: 1600 } },
+  { levelNumber: 27, goalType: 'clearIceMoves', boardSize: 7, iceTilesToClearTarget: 12, moveLimit: 22, icePositions: [{ row: 0, col: 2 }, { row: 0, col: 4 }, { row: 1, col: 1 }, { row: 1, col: 3 }, { row: 1, col: 5 }, { row: 2, col: 2 }, { row: 2, col: 4 }, { row: 4, col: 2 }, { row: 4, col: 4 }, { row: 5, col: 1 }, { row: 5, col: 5 }, { row: 6, col: 3 }], starThresholds: { oneStar: 160, twoStar: 320, threeStar: 560 } },
+  { levelNumber: 28, goalType: 'scoreTimedIce', boardSize: 7, targetScore: 500, timeLimitSeconds: 110, iceTilesToClearTarget: 8, icePositions: [{ row: 0, col: 1 }, { row: 0, col: 5 }, { row: 2, col: 0 }, { row: 2, col: 6 }, { row: 4, col: 0 }, { row: 4, col: 6 }, { row: 6, col: 2 }, { row: 6, col: 4 }], starThresholds: { oneStar: 500, twoStar: 750, threeStar: 1050 } },
+  { levelNumber: 29, goalType: 'scoreMove',     boardSize: 7, targetScore: 750, moveLimit: 14, starThresholds: { oneStar: 750, twoStar: 1100, threeStar: 1500 } },
+  { levelNumber: 30, goalType: 'scoreMoveIce',  boardSize: 7, targetScore: 500, moveLimit: 18, iceTilesToClearTarget: 9, icePositions: [{ row: 1, col: 1 }, { row: 1, col: 3 }, { row: 1, col: 5 }, { row: 3, col: 0 }, { row: 3, col: 3 }, { row: 3, col: 6 }, { row: 5, col: 1 }, { row: 5, col: 3 }, { row: 5, col: 5 }], starThresholds: { oneStar: 500, twoStar: 760, threeStar: 1060 } },
+  { levelNumber: 31, goalType: 'scoreTimed',    boardSize: 7, targetScore: 950, timeLimitSeconds: 100, starThresholds: { oneStar: 950, twoStar: 1400, threeStar: 1950 } },
+  { levelNumber: 32, goalType: 'scoreTimedIce', boardSize: 7, targetScore: 600, timeLimitSeconds: 105, iceTilesToClearTarget: 10, icePositions: [{ row: 0, col: 0 }, { row: 0, col: 3 }, { row: 0, col: 6 }, { row: 3, col: 0 }, { row: 3, col: 6 }, { row: 6, col: 0 }, { row: 6, col: 3 }, { row: 6, col: 6 }, { row: 2, col: 3 }, { row: 4, col: 3 }], starThresholds: { oneStar: 600, twoStar: 900, threeStar: 1260 } },
+  { levelNumber: 33, goalType: 'clearIceMoves', boardSize: 7, iceTilesToClearTarget: 14, moveLimit: 22, icePositions: [{ row: 0, col: 1 }, { row: 0, col: 3 }, { row: 0, col: 5 }, { row: 2, col: 0 }, { row: 2, col: 2 }, { row: 2, col: 4 }, { row: 2, col: 6 }, { row: 4, col: 0 }, { row: 4, col: 2 }, { row: 4, col: 4 }, { row: 4, col: 6 }, { row: 6, col: 1 }, { row: 6, col: 3 }, { row: 6, col: 5 }], starThresholds: { oneStar: 180, twoStar: 360, threeStar: 640 } },
+  { levelNumber: 34, goalType: 'scoreMoveIce',  boardSize: 7, targetScore: 650, moveLimit: 18, iceTilesToClearTarget: 10, icePositions: [{ row: 0, col: 2 }, { row: 0, col: 4 }, { row: 2, col: 1 }, { row: 2, col: 3 }, { row: 2, col: 5 }, { row: 4, col: 1 }, { row: 4, col: 3 }, { row: 4, col: 5 }, { row: 6, col: 2 }, { row: 6, col: 4 }], starThresholds: { oneStar: 650, twoStar: 980, threeStar: 1360 } },
+  { levelNumber: 35, goalType: 'scoreTimed',    boardSize: 7, targetScore: 1100, timeLimitSeconds: 95, starThresholds: { oneStar: 1100, twoStar: 1600, threeStar: 2200 } },
+
+  // ── WORLD 4 (L36–50): 7×7 board, expert / endgame ──────────────────────────
+  { levelNumber: 36, goalType: 'scoreTimedIce', boardSize: 7, targetScore: 700,  timeLimitSeconds: 100, iceTilesToClearTarget: 10, icePositions: [{ row: 0, col: 1 }, { row: 0, col: 5 }, { row: 1, col: 3 }, { row: 2, col: 0 }, { row: 2, col: 6 }, { row: 3, col: 2 }, { row: 3, col: 4 }, { row: 5, col: 0 }, { row: 5, col: 6 }, { row: 6, col: 3 }], starThresholds: { oneStar: 700, twoStar: 1050, threeStar: 1480 } },
+  { levelNumber: 37, goalType: 'scoreMove',     boardSize: 7, targetScore: 900,  moveLimit: 12, starThresholds: { oneStar: 900, twoStar: 1300, threeStar: 1800 } },
+  { levelNumber: 38, goalType: 'clearIceMoves', boardSize: 7, iceTilesToClearTarget: 16, moveLimit: 24, icePositions: [{ row: 0, col: 0 }, { row: 0, col: 2 }, { row: 0, col: 4 }, { row: 0, col: 6 }, { row: 2, col: 1 }, { row: 2, col: 3 }, { row: 2, col: 5 }, { row: 4, col: 0 }, { row: 4, col: 2 }, { row: 4, col: 4 }, { row: 4, col: 6 }, { row: 6, col: 1 }, { row: 6, col: 3 }, { row: 6, col: 5 }, { row: 3, col: 0 }, { row: 3, col: 6 }], starThresholds: { oneStar: 200, twoStar: 400, threeStar: 700 } },
+  { levelNumber: 39, goalType: 'scoreMoveIce',  boardSize: 7, targetScore: 750,  moveLimit: 16, iceTilesToClearTarget: 11, icePositions: [{ row: 0, col: 3 }, { row: 1, col: 1 }, { row: 1, col: 5 }, { row: 2, col: 0 }, { row: 2, col: 6 }, { row: 3, col: 2 }, { row: 3, col: 4 }, { row: 4, col: 0 }, { row: 4, col: 6 }, { row: 5, col: 2 }, { row: 5, col: 4 }], starThresholds: { oneStar: 750, twoStar: 1120, threeStar: 1560 } },
+  { levelNumber: 40, goalType: 'scoreTimed',    boardSize: 7, targetScore: 1300, timeLimitSeconds: 90, starThresholds: { oneStar: 1300, twoStar: 1900, threeStar: 2600 } },
+  { levelNumber: 41, goalType: 'scoreTimedIce', boardSize: 7, targetScore: 800,  timeLimitSeconds: 95, iceTilesToClearTarget: 12, icePositions: [{ row: 0, col: 1 }, { row: 0, col: 3 }, { row: 0, col: 5 }, { row: 2, col: 0 }, { row: 2, col: 6 }, { row: 3, col: 3 }, { row: 4, col: 0 }, { row: 4, col: 6 }, { row: 6, col: 1 }, { row: 6, col: 3 }, { row: 6, col: 5 }, { row: 3, col: 0 }], starThresholds: { oneStar: 800, twoStar: 1200, threeStar: 1680 } },
+  { levelNumber: 42, goalType: 'clearIceMoves', boardSize: 7, iceTilesToClearTarget: 18, moveLimit: 24, icePositions: [{ row: 0, col: 0 }, { row: 0, col: 2 }, { row: 0, col: 4 }, { row: 0, col: 6 }, { row: 1, col: 3 }, { row: 2, col: 1 }, { row: 2, col: 5 }, { row: 3, col: 0 }, { row: 3, col: 6 }, { row: 4, col: 1 }, { row: 4, col: 5 }, { row: 5, col: 3 }, { row: 6, col: 0 }, { row: 6, col: 2 }, { row: 6, col: 4 }, { row: 6, col: 6 }, { row: 1, col: 1 }, { row: 1, col: 5 }], starThresholds: { oneStar: 220, twoStar: 440, threeStar: 760 } },
+  { levelNumber: 43, goalType: 'scoreMoveIce',  boardSize: 7, targetScore: 900,  moveLimit: 16, iceTilesToClearTarget: 12, icePositions: [{ row: 1, col: 0 }, { row: 1, col: 2 }, { row: 1, col: 4 }, { row: 1, col: 6 }, { row: 3, col: 1 }, { row: 3, col: 3 }, { row: 3, col: 5 }, { row: 5, col: 0 }, { row: 5, col: 2 }, { row: 5, col: 4 }, { row: 5, col: 6 }, { row: 0, col: 3 }], starThresholds: { oneStar: 900, twoStar: 1350, threeStar: 1900 } },
+  { levelNumber: 44, goalType: 'scoreMove',     boardSize: 7, targetScore: 1100, moveLimit: 12, starThresholds: { oneStar: 1100, twoStar: 1600, threeStar: 2200 } },
+  { levelNumber: 45, goalType: 'scoreTimed',    boardSize: 7, targetScore: 1500, timeLimitSeconds: 90, starThresholds: { oneStar: 1500, twoStar: 2200, threeStar: 3000 } },
+  { levelNumber: 46, goalType: 'scoreTimedIce', boardSize: 7, targetScore: 1000, timeLimitSeconds: 90, iceTilesToClearTarget: 14, icePositions: [{ row: 0, col: 0 }, { row: 0, col: 2 }, { row: 0, col: 4 }, { row: 0, col: 6 }, { row: 2, col: 1 }, { row: 2, col: 5 }, { row: 3, col: 3 }, { row: 4, col: 1 }, { row: 4, col: 5 }, { row: 6, col: 0 }, { row: 6, col: 2 }, { row: 6, col: 4 }, { row: 6, col: 6 }, { row: 1, col: 3 }], starThresholds: { oneStar: 1000, twoStar: 1500, threeStar: 2100 } },
+  { levelNumber: 47, goalType: 'clearIceMoves', boardSize: 7, iceTilesToClearTarget: 20, moveLimit: 26, icePositions: [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 5 }, { row: 0, col: 6 }, { row: 1, col: 0 }, { row: 1, col: 6 }, { row: 2, col: 2 }, { row: 2, col: 4 }, { row: 3, col: 1 }, { row: 3, col: 3 }, { row: 3, col: 5 }, { row: 4, col: 2 }, { row: 4, col: 4 }, { row: 5, col: 0 }, { row: 5, col: 6 }, { row: 6, col: 0 }, { row: 6, col: 1 }, { row: 6, col: 5 }, { row: 6, col: 6 }, { row: 0, col: 3 }], starThresholds: { oneStar: 240, twoStar: 480, threeStar: 840 } },
+  { levelNumber: 48, goalType: 'scoreMoveIce',  boardSize: 7, targetScore: 1100, moveLimit: 16, iceTilesToClearTarget: 14, icePositions: [{ row: 0, col: 0 }, { row: 0, col: 3 }, { row: 0, col: 6 }, { row: 1, col: 2 }, { row: 1, col: 4 }, { row: 3, col: 0 }, { row: 3, col: 2 }, { row: 3, col: 4 }, { row: 3, col: 6 }, { row: 5, col: 2 }, { row: 5, col: 4 }, { row: 6, col: 0 }, { row: 6, col: 3 }, { row: 6, col: 6 }], starThresholds: { oneStar: 1100, twoStar: 1650, threeStar: 2300 } },
+  { levelNumber: 49, goalType: 'scoreTimedIce', boardSize: 7, targetScore: 1200, timeLimitSeconds: 85, iceTilesToClearTarget: 16, icePositions: [{ row: 0, col: 0 }, { row: 0, col: 2 }, { row: 0, col: 4 }, { row: 0, col: 6 }, { row: 2, col: 0 }, { row: 2, col: 2 }, { row: 2, col: 4 }, { row: 2, col: 6 }, { row: 4, col: 0 }, { row: 4, col: 2 }, { row: 4, col: 4 }, { row: 4, col: 6 }, { row: 6, col: 0 }, { row: 6, col: 2 }, { row: 6, col: 4 }, { row: 6, col: 6 }], starThresholds: { oneStar: 1200, twoStar: 1800, threeStar: 2500 } },
+  // L50: Grand Finale — all constraints
+  { levelNumber: 50, goalType: 'scoreMoveIce',  boardSize: 7, targetScore: 1500, moveLimit: 18, iceTilesToClearTarget: 18, icePositions: [{ row: 0, col: 0 }, { row: 0, col: 2 }, { row: 0, col: 4 }, { row: 0, col: 6 }, { row: 1, col: 1 }, { row: 1, col: 5 }, { row: 2, col: 0 }, { row: 2, col: 6 }, { row: 3, col: 2 }, { row: 3, col: 4 }, { row: 4, col: 0 }, { row: 4, col: 6 }, { row: 5, col: 1 }, { row: 5, col: 5 }, { row: 6, col: 0 }, { row: 6, col: 2 }, { row: 6, col: 4 }, { row: 6, col: 6 }], starThresholds: { oneStar: 1500, twoStar: 2200, threeStar: 3000 } },
 ];
 
 // --- Powerup unlock persistence ---
@@ -726,7 +786,8 @@ function applyNonChainWord(state: GameState, path: Tile[], word: string, totalSc
   state.mineDetonations = [];
   state.explosionClears = [];
 
-  if (state.level.goalType === 'clearIceMoves') state.movesRemaining--;
+  // Decrement moves for any goal type that has a move limit
+  if (state.level.moveLimit !== undefined) state.movesRemaining--;
   for (const tile of path) hitIce(state, tile.row, tile.col);
 
   const specialType = specialTileForWordLength(path.length);
@@ -1100,26 +1161,41 @@ export function refillBoard(state: GameState) {
 }
 
 export function checkWinCondition(state: GameState) {
-  if (state.level.goalType === 'scoreTimed') {
-    if (state.score >= (state.level.targetScore || 0)) {
-      state.isWon = true;
-      state.isGameOver = true;
-      state.stars = calculateStars(state);
-    }
-    if (state.timeRemaining <= 0 && !state.isWon) {
-      state.isGameOver = true;
-      state.stars = 0;
-    }
-  } else if (state.level.goalType === 'clearIceMoves') {
-    if (state.iceCleared >= state.totalIce) {
-      state.isWon = true;
-      state.isGameOver = true;
-      state.stars = calculateStars(state);
-    }
-    if (state.movesRemaining <= 0 && !state.isWon) {
-      state.isGameOver = true;
-      state.stars = 0;
-    }
+  const g = state.level.goalType;
+  const scoreGoal  = state.level.targetScore ?? 0;
+  const iceGoal    = state.level.iceTilesToClearTarget ?? 0;
+  const scoreOk    = state.score >= scoreGoal;
+  const iceOk      = state.iceCleared >= iceGoal;
+  const outOfMoves = (state.level.moveLimit !== undefined) && state.movesRemaining <= 0;
+  const outOfTime  = state.timeRemaining <= 0;
+
+  if (g === 'scoreTimed') {
+    if (scoreOk)                         { state.isWon = true; }
+    else if (outOfTime && !state.isWon)  { /* fail */ }
+    if (!state.isWon && outOfTime)       { state.isGameOver = true; state.stars = 0; }
+
+  } else if (g === 'clearIceMoves') {
+    if (iceOk)                           { state.isWon = true; }
+    else if (outOfMoves && !state.isWon) { state.isGameOver = true; state.stars = 0; }
+
+  } else if (g === 'scoreMove') {
+    if (scoreOk)                         { state.isWon = true; }
+    else if (outOfMoves && !state.isWon) { state.isGameOver = true; state.stars = 0; }
+
+  } else if (g === 'scoreTimedIce') {
+    // Win: score AND ice both met before time runs out
+    if (scoreOk && iceOk)                { state.isWon = true; }
+    else if (outOfTime && !state.isWon)  { state.isGameOver = true; state.stars = 0; }
+
+  } else if (g === 'scoreMoveIce') {
+    // Win: score AND ice both met within move limit
+    if (scoreOk && iceOk)                { state.isWon = true; }
+    else if (outOfMoves && !state.isWon) { state.isGameOver = true; state.stars = 0; }
+  }
+
+  if (state.isWon && !state.isGameOver) {
+    state.isGameOver = true;
+    state.stars = calculateStars(state);
   }
 }
 
