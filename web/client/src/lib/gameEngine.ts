@@ -299,6 +299,7 @@ export interface ChainModeState {
   chainWordCount: number;
   chainBasePoints: number;
   pendingWord: PendingWord | null;
+  usedWordPaths: Set<string>; // prevents reusing same tiles for same word in a chain
 }
 
 export interface PendingWord {
@@ -460,6 +461,7 @@ export function createGameState(level: LevelConfig): GameState {
       chainWordCount: 0,
       chainBasePoints: 0,
       pendingWord: null,
+      usedWordPaths: new Set<string>(),
     },
     uiMessage: '',
     uiMessageTimer: 0,
@@ -646,6 +648,7 @@ function resolveChain(state: GameState, explosiveEnded = false) {
   cm.linkedTiles.clear();
   cm.chainWordCount = 0;
   cm.chainBasePoints = 0;
+  cm.usedWordPaths.clear();
 }
 
 function applyNonChainWord(state: GameState, path: Tile[], word: string, totalScore: number): { valid: boolean; score: number; word: string } {
@@ -722,6 +725,11 @@ function applyNonChainWord(state: GameState, path: Tile[], word: string, totalSc
   return { valid: true, score: totalScore, word };
 }
 
+function chainPathKey(word: string, path: { row: number; col: number }[]): string {
+  const coords = [...path].map(t => `${t.row},${t.col}`).sort().join('|');
+  return `${word}:${coords}`;
+}
+
 export function submitWord(state: GameState): { valid: boolean; score: number; word: string } {
   const path = state.selectedPath;
   if (path.length < 3) return { valid: false, score: 0, word: '' };
@@ -731,6 +739,18 @@ export function submitWord(state: GameState): { valid: boolean; score: number; w
     triggerScreenShake(state, 4, 12);
     state.selectedPath = [];
     return { valid: false, score: 0, word };
+  }
+
+  // In link/chain mode, block reusing the exact same tiles to spell the same word
+  if (state.chainMode.chainActive) {
+    const key = chainPathKey(word, path);
+    if (state.chainMode.usedWordPaths.has(key)) {
+      triggerScreenShake(state, 4, 12);
+      state.selectedPath = [];
+      state.uiMessage = 'Already used!';
+      state.uiMessageTimer = 90;
+      return { valid: false, score: 0, word };
+    }
   }
 
   state.timerStarted = true;
@@ -782,6 +802,7 @@ export function submitWord(state: GameState): { valid: boolean; score: number; w
     state.chainMode.chainWordCount++;
     state.chainMode.chainBasePoints += totalScore;
     for (const tile of path) state.chainMode.linkedTiles.add(keyFor(tile.row, tile.col));
+    state.chainMode.usedWordPaths.add(chainPathKey(word, path));
 
     state.lastWordScore = totalScore;
     state.lastWord = word;
