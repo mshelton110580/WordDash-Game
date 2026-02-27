@@ -37,3 +37,8 @@ web/dist/
 web/.manus-logs/
 web/.manus/
 web/__manus__/
+
+# Claude agent data (may contain secrets)
+.claude-data/
+.dev_server_info
+.dev_server_port
