@@ -25,7 +25,7 @@
 
 ## Core Gameplay
 
-- [x] Board: 7x7 grid with uppercase letter tiles
+- [x] Board: variable-size grid (5×5, 6×6, 7×7) depending on level
 - [x] Input: drag to connect tiles in 8 directions (including diagonals)
 - [x] A tile cannot be used twice in the same path
 - [x] Backtracking: dragging back to previous tile removes last tile from path
@@ -97,6 +97,11 @@
 - [x] 4) Cross Laser: user taps a tile; clear row and column
 - [x] 5) Mine: user taps a tile to place mine overlay; triggers when tile is cleared, then clears surrounding 3x3
 - [x] 6) Shuffle: randomize all non-special tile letters (bonus power-up not in original spec)
+- [x] Powerup unlock progression: each powerup gated behind a specific level completion
+- [x] Unlock state persisted in localStorage (worddash_powerup_unlocks)
+- [x] Locked powerups show 🔒 icon with tooltip "Unlocks at level N" in the HUD
+- [x] On level completion that triggers an unlock: animated one-time popup naming the new powerup(s)
+- [x] POWERUP_UNLOCK_LEVELS config: hint/shuffle=L1, bomb=L2, laser=L4, mine=L6, crossLaser=L8, link=L10
 
 ---
 
@@ -108,6 +113,9 @@
 - [x] Ice blocker (2-hit): first clearing event → crack; second → clear
 - [x] Ice tiles can be used in word paths
 - [x] Mix of scoreTimed and clearIceMoves across levels 1–10
+- [x] Board size progression per level: 5×5 (L1–3) → 6×6 (L4–6) → 7×7 (L7–10)
+- [x] All systems adapt to variable board size (gravity, refill, adjacency, scoring, UI)
+- [x] Level select card shows board size (NxN badge)
 
 ---
 
