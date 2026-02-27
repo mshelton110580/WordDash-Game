@@ -1121,3 +1121,227 @@
 2026-02-27T06:14:51.546Z [DEBUG] [API:auth] OAuth token check complete
 2026-02-27T06:14:51.546Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
 2026-02-27T06:14:52.655Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:39.837Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:39.938Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:40.349Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:26:40.350Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:40.350Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:40.350Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:40.351Z [DEBUG] Getting matching hook commands for PostToolUse with query: Bash
+2026-02-27T06:26:40.351Z [DEBUG] Found 5 hook matchers in settings
+2026-02-27T06:26:40.351Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-27T06:26:40.351Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:40.351Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:40.438Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-02-27T06:26:40.438Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-02-27T06:26:40.439Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-02-27T06:26:40.439Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-02-27T06:26:40.440Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:40.440Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:40.440Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:40.440Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:40.441Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:40.441Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:40.441Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:40.441Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:40.441Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:41.139Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:41.543Z [DEBUG] autocompact: tokens=63412 threshold=167000 effectiveWindow=180000
+2026-02-27T06:26:41.543Z [DEBUG] Tool search disabled: ToolSearchTool is not available (may have been disallowed via disallowedTools).
+2026-02-27T06:26:41.551Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:41.551Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:41.551Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:41.551Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:41.551Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:42.739Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:43.239Z [DEBUG] executePreToolHooks called for tool: Bash
+2026-02-27T06:26:43.239Z [DEBUG] Getting matching hook commands for PreToolUse with query: Bash
+2026-02-27T06:26:43.239Z [DEBUG] Found 0 hook matchers in settings
+2026-02-27T06:26:43.239Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-27T06:26:43.249Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:26:43.250Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:43.250Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:43.250Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:43.250Z [DEBUG] Getting matching hook commands for PostToolUse with query: Bash
+2026-02-27T06:26:43.250Z [DEBUG] Found 5 hook matchers in settings
+2026-02-27T06:26:43.250Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-27T06:26:43.250Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:43.250Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:43.252Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-02-27T06:26:43.252Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-02-27T06:26:43.252Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-02-27T06:26:43.252Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-02-27T06:26:43.253Z [DEBUG] autocompact: tokens=63619 threshold=167000 effectiveWindow=180000
+2026-02-27T06:26:43.253Z [DEBUG] Tool search disabled: ToolSearchTool is not available (may have been disallowed via disallowedTools).
+2026-02-27T06:26:43.339Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:43.339Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:43.339Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:43.339Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:43.339Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:43.937Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:44.542Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:45.941Z [DEBUG] executePreToolHooks called for tool: Bash
+2026-02-27T06:26:45.941Z [DEBUG] Getting matching hook commands for PreToolUse with query: Bash
+2026-02-27T06:26:45.941Z [DEBUG] Found 0 hook matchers in settings
+2026-02-27T06:26:45.941Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-27T06:26:45.945Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:26:45.945Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:26:45.945Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:26:45.945Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:45.945Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:45.946Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:45.946Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:45.946Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:45.946Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:45.946Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:45.946Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:45.946Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:45.946Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:45.947Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:45.947Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:45.947Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:45.947Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:45.947Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:46.538Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:46.641Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:46.741Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:47.041Z [DEBUG] Bash tool error (203ms): Shell command failed
+2026-02-27T06:26:47.041Z [DEBUG] Getting matching hook commands for PostToolUseFailure with query: Bash
+2026-02-27T06:26:47.041Z [DEBUG] Found 0 hook matchers in settings
+2026-02-27T06:26:47.041Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-27T06:26:47.042Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-02-27T06:26:47.042Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-02-27T06:26:47.042Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-02-27T06:26:47.042Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-02-27T06:26:47.043Z [DEBUG] autocompact: tokens=64080 threshold=167000 effectiveWindow=180000
+2026-02-27T06:26:47.043Z [DEBUG] Tool search disabled: ToolSearchTool is not available (may have been disallowed via disallowedTools).
+2026-02-27T06:26:47.048Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:47.048Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:47.048Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:47.048Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:47.048Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:48.156Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:49.753Z [DEBUG] executePreToolHooks called for tool: Read
+2026-02-27T06:26:49.753Z [DEBUG] Getting matching hook commands for PreToolUse with query: Read
+2026-02-27T06:26:49.753Z [DEBUG] Found 0 hook matchers in settings
+2026-02-27T06:26:49.753Z [DEBUG] Matched 0 unique hooks for query "Read" (0 before deduplication)
+2026-02-27T06:26:49.755Z [DEBUG] Getting matching hook commands for PostToolUse with query: Read
+2026-02-27T06:26:49.755Z [DEBUG] Found 5 hook matchers in settings
+2026-02-27T06:26:49.755Z [DEBUG] Matched 1 unique hooks for query "Read" (1 before deduplication)
+2026-02-27T06:26:49.757Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-02-27T06:26:49.757Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-02-27T06:26:49.757Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-02-27T06:26:49.757Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-02-27T06:26:49.758Z [DEBUG] autocompact: tokens=64626 threshold=167000 effectiveWindow=180000
+2026-02-27T06:26:49.758Z [DEBUG] Tool search disabled: ToolSearchTool is not available (may have been disallowed via disallowedTools).
+2026-02-27T06:26:49.764Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:49.764Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:49.764Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:49.764Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:49.764Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:51.059Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:52.842Z [DEBUG] executePreToolHooks called for tool: Edit
+2026-02-27T06:26:52.842Z [DEBUG] Getting matching hook commands for PreToolUse with query: Edit
+2026-02-27T06:26:52.842Z [DEBUG] Found 0 hook matchers in settings
+2026-02-27T06:26:52.842Z [DEBUG] Matched 0 unique hooks for query "Edit" (0 before deduplication)
+2026-02-27T06:26:52.843Z [DEBUG] Writing to temp file: /workspace/.gitignore.tmp.344.1772173612843
+2026-02-27T06:26:52.843Z [DEBUG] Preserving file permissions: 100644
+2026-02-27T06:26:52.848Z [DEBUG] Temp file written successfully, size: 506 bytes
+2026-02-27T06:26:52.848Z [DEBUG] Applied original permissions to temp file
+2026-02-27T06:26:52.848Z [DEBUG] Renaming /workspace/.gitignore.tmp.344.1772173612843 to /workspace/.gitignore
+2026-02-27T06:26:52.848Z [DEBUG] File /workspace/.gitignore written atomically
+2026-02-27T06:26:52.849Z [DEBUG] Getting matching hook commands for PostToolUse with query: Edit
+2026-02-27T06:26:52.849Z [DEBUG] Found 5 hook matchers in settings
+2026-02-27T06:26:52.849Z [DEBUG] Matched 1 unique hooks for query "Edit" (1 before deduplication)
+2026-02-27T06:26:52.851Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-02-27T06:26:52.851Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-02-27T06:26:52.851Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-02-27T06:26:52.851Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-02-27T06:26:52.852Z [DEBUG] autocompact: tokens=64994 threshold=167000 effectiveWindow=180000
+2026-02-27T06:26:52.852Z [DEBUG] Tool search disabled: ToolSearchTool is not available (may have been disallowed via disallowedTools).
+2026-02-27T06:26:52.857Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:52.857Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:52.858Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:52.858Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:52.858Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:54.317Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:56.241Z [DEBUG] executePreToolHooks called for tool: Bash
+2026-02-27T06:26:56.241Z [DEBUG] Getting matching hook commands for PreToolUse with query: Bash
+2026-02-27T06:26:56.241Z [DEBUG] Found 0 hook matchers in settings
+2026-02-27T06:26:56.241Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-27T06:26:56.249Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:26:56.249Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:26:56.249Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:26:56.250Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:56.250Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:56.250Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:56.250Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:56.250Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:56.250Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:56.251Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:56.251Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:56.251Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:56.251Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:56.251Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:56.251Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:56.251Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:56.251Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:56.251Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:56.920Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:57.139Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:57.718Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:57.855Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:26:57.855Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:57.855Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:57.855Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:57.856Z [DEBUG] Getting matching hook commands for PostToolUse with query: Bash
+2026-02-27T06:26:57.856Z [DEBUG] Found 5 hook matchers in settings
+2026-02-27T06:26:57.856Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-27T06:26:57.856Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:57.856Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:57.937Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-02-27T06:26:57.937Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-02-27T06:26:57.937Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-02-27T06:26:57.937Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-02-27T06:26:57.938Z [DEBUG] autocompact: tokens=65192 threshold=167000 effectiveWindow=180000
+2026-02-27T06:26:57.938Z [DEBUG] Tool search disabled: ToolSearchTool is not available (may have been disallowed via disallowedTools).
+2026-02-27T06:26:57.944Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:57.944Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:57.944Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:57.944Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:57.944Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:58.533Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:59.217Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:26:59.942Z [DEBUG] executePreToolHooks called for tool: Bash
+2026-02-27T06:26:59.943Z [DEBUG] Getting matching hook commands for PreToolUse with query: Bash
+2026-02-27T06:26:59.943Z [DEBUG] Found 0 hook matchers in settings
+2026-02-27T06:26:59.943Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-27T06:26:59.945Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:26:59.946Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:26:59.946Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:26:59.946Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:26:59.946Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:26:59.946Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:27:00.641Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:27:01.342Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-27T06:27:01.342Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:27:01.342Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:27:01.343Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:27:01.343Z [DEBUG] Getting matching hook commands for PostToolUse with query: Bash
+2026-02-27T06:27:01.343Z [DEBUG] Found 5 hook matchers in settings
+2026-02-27T06:27:01.343Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-27T06:27:01.343Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:27:01.343Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:27:01.344Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-02-27T06:27:01.344Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-02-27T06:27:01.344Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-02-27T06:27:01.344Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-02-27T06:27:01.345Z [DEBUG] autocompact: tokens=65351 threshold=167000 effectiveWindow=180000
+2026-02-27T06:27:01.345Z [DEBUG] Tool search disabled: ToolSearchTool is not available (may have been disallowed via disallowedTools).
+2026-02-27T06:27:01.350Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-27T06:27:01.350Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-27T06:27:01.350Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:27:01.351Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-27T06:27:01.351Z [DEBUG] Fast mode unavailable: Fast mode is not available in the Agent SDK
+2026-02-27T06:27:02.591Z [DEBUG] Stream started - received first chunk
+2026-02-27T06:27:02.888Z [DEBUG] Stream started - received first chunk
