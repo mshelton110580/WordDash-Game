@@ -1009,17 +1009,18 @@ export function refillBoard(state: GameState) {
     for (let r = state.boardSize - 1; r >= 0; r--) {
       if (state.board[r][c] === null) {
         const tile = createTile(randomLetter(), r, c);
-        // Spawn from above: fallFromRow is a virtual row above the board
-        // Higher slots (r closer to 0) have a shorter drop distance
-        const spawnRow = -(slotRank - slotIndex); // e.g. -3, -2, -1 for 3 slots
+        // Spawn from above: bottom slot (slotIndex=0) spawns 1 row above the board
+        // (-1), next slot up spawns at -2, etc. So bottom tile has shortest drop
+        // and top tile has the longest drop — they all arrive close together.
+        const spawnRow = -(slotIndex + 1);
         tile.fallFromRow = spawnRow;
         tile.isFalling = true;
         tile.animProgress = 0;
         // Distance from spawn row to dest row
         tile.fallDist = r - spawnRow;
-        // Stagger by slot: topmost tile starts a few frames after lower ones
-        // so they arrive close together but the lowest lands first
-        tile.fallDelay = (slotRank - 1 - slotIndex) * 2;
+        // Bottom tile (slotIndex=0) has no delay — it lands first.
+        // Higher tiles get a small delay so the cascade flows top→bottom.
+        tile.fallDelay = slotIndex * 2;
         tile.landingProgress = 0;
         slotIndex++;
 
