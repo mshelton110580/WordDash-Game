@@ -312,15 +312,54 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
       drawCoinFlyEvents(ctx);
       drawScoreFlyEvents(ctx);
 
-      // Falling animations
+      // Falling animations (with per-tile delay, distance-based speed, landing squish trigger)
       for (let r = 0; r < boardSize; r++) {
         for (let c = 0; c < boardSize; c++) {
           const tile = gameState.board[r]?.[c];
           if (tile && tile.isFalling) {
-            tile.animProgress = Math.min(1, tile.animProgress + 0.08);
-            if (tile.animProgress >= 1) {
-              tile.isFalling = false;
+            if (tile.fallDelay > 0) {
+              tile.fallDelay--;
+            } else {
+              // Faster fall for longer drops: base 0.075, +0.008 per extra row of distance
+              const speed = 0.075 + Math.max(0, (tile.fallDist - 1)) * 0.008;
+              tile.animProgress = Math.min(1, tile.animProgress + speed);
+              if (tile.animProgress >= 1) {
+                tile.isFalling = false;
+                tile.landingProgress = 0.001; // kick off landing squish
+              }
             }
+          }
+          // Landing squish settle + one-shot dust puff (runs after isFalling ends)
+          if (tile && !tile.isFalling && tile.landingProgress > 0 && tile.landingProgress < 1) {
+            // Spawn landing dust once, right at impact (landingProgress just started)
+            const landKey = tile.id;
+            if (tile.landingProgress <= 0.07 && !gameState._landingSpawnedSet.has(landKey)) {
+              gameState._landingSpawnedSet.add(landKey);
+              const { x: lx, y: ly } = getTilePos(tile.row, tile.col);
+              const baseX = lx + tileSize / 2;
+              const baseY = ly + tileSize;  // bottom edge of tile
+              // 3 tiny dust puffs fanning outward at the base
+              for (let d = 0; d < 3; d++) {
+                const angle = Math.PI + (d - 1) * 0.55; // left, center, right downward fan
+                const speed = 0.8 + Math.random() * 0.8;
+                gameState.particles.push({
+                  x: baseX + (d - 1) * tileSize * 0.22,
+                  y: baseY - 3,
+                  vx: Math.cos(angle) * speed,
+                  vy: Math.sin(angle) * speed - 0.3,
+                  life: 14 + Math.floor(Math.random() * 8),
+                  maxLife: 22,
+                  color: '#D4A574',
+                  size: 4 + Math.random() * 3,
+                  role: 'dust',
+                  blend: 'alpha',
+                  rotation: 0,
+                  rotationSpeed: 0,
+                  shape: 'circle',
+                });
+              }
+            }
+            tile.landingProgress = Math.min(1, tile.landingProgress + 0.07);
           }
         }
       }
@@ -349,12 +388,50 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
     const pos = getTilePos(row, col);
     let { x, y } = pos;
 
-    // Falling animation
-    if (tile.isFalling) {
+    const isFallingNow = tile.isFalling && tile.fallDelay <= 0;
+
+    // Falling animation — gravity easing + air trail for longer drops
+    if (isFallingNow) {
       const fromY = BOARD_PADDING + tile.fallFromRow * (tileSize + TILE_GAP);
       const toY = y;
-      const eased = easeOutBounce(tile.animProgress);
+      const eased = easeOutGravity(tile.animProgress);
       y = fromY + (toY - fromY) * eased;
+
+      // Air trail: only for drops > 1.5 tiles, faint additive streak above tile
+      if (tile.fallDist > 1.5) {
+        const trailStrength = Math.min(1, (tile.fallDist - 1.5) / 3);
+        // Trail length proportional to current velocity (fast = longer streak)
+        // Velocity peaks at animProgress ~0.7 for gravity ease
+        const velocity = Math.min(1, tile.animProgress * 2); // approximation
+        const trailH = tileSize * 0.55 * velocity * trailStrength;
+        if (trailH > 2) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const grad = ctx.createLinearGradient(x + tileSize * 0.5, y, x + tileSize * 0.5, y - trailH);
+          grad.addColorStop(0, `rgba(255,255,240,${0.18 * trailStrength * velocity})`);
+          grad.addColorStop(1, 'rgba(255,255,240,0)');
+          ctx.fillStyle = grad;
+          const trailW = tileSize * 0.45;
+          ctx.fillRect(x + tileSize * 0.5 - trailW / 2, y - trailH, trailW, trailH);
+          ctx.restore();
+        }
+      }
+    }
+
+    // Landing squish — applied via canvas transform around tile center
+    const hasSquish = !tile.isFalling && tile.landingProgress > 0 && tile.landingProgress < 1;
+    const cx = x + tileSize / 2;
+    const cy = y + tileSize / 2;
+    let squishApplied = false;
+    if (hasSquish) {
+      const { sx, sy } = landingSquishScale(tile.landingProgress);
+      if (Math.abs(sx - 1) > 0.002 || Math.abs(sy - 1) > 0.002) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(sx, sy);
+        ctx.translate(-cx, -cy);
+        squishApplied = true;
+      }
     }
 
     const isSelected = gameState.selectedPath.some(t => t.id === tile.id);
@@ -403,6 +480,9 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
 
     // Letter
     drawTileText(ctx, tile, x, y);
+
+    // Restore squish transform
+    if (squishApplied) ctx.restore();
   }
 
   // ===================== CLEARING TILE ANIMATION =====================
@@ -1059,11 +1139,34 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-function easeOutBounce(t: number): number {
-  const n1 = 7.5625;
-  const d1 = 2.75;
-  if (t < 1 / d1) return n1 * t * t;
-  if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75;
-  if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375;
-  return n1 * (t -= 2.625 / d1) * t + 0.984375;
+// Gravity-style easing: accelerates quickly then snaps cleanly to grid (no overshooting bounce).
+// Uses cubic ease-in for the fall, then a quick deceleration in the last 8% for a clean snap.
+function easeOutGravity(t: number): number {
+  if (t < 0.92) {
+    // Accelerating fall (ease-in cubic) mapped to [0, 0.96]
+    const s = t / 0.92;
+    return s * s * s * 0.96;
+  }
+  // Final snap: smoothly decelerate into grid position
+  const s = (t - 0.92) / 0.08;
+  return 0.96 + s * (1 - 0.96);
+}
+
+// Landing squish scale: Y compresses to 0.92, springs to 1.03, settles at 1.0
+// p is landingProgress 0→1
+function landingSquishScale(p: number): { sx: number; sy: number } {
+  if (p <= 0) return { sx: 1, sy: 1 };
+  if (p < 0.25) {
+    // Squish down: Y 1.0 → 0.92, X 1.0 → 1.08
+    const t = p / 0.25;
+    return { sx: 1 + t * 0.08, sy: 1 - t * 0.08 };
+  }
+  if (p < 0.6) {
+    // Spring up: Y 0.92 → 1.03, X 1.08 → 0.97
+    const t = (p - 0.25) / 0.35;
+    return { sx: 1.08 - t * 0.11, sy: 0.92 + t * 0.11 };
+  }
+  // Settle: Y 1.03 → 1.0, X 0.97 → 1.0
+  const t = (p - 0.6) / 0.4;
+  return { sx: 0.97 + t * 0.03, sy: 1.03 - t * 0.03 };
 }

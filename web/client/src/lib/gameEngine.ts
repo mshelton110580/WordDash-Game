@@ -51,6 +51,9 @@ export interface Tile {
   animProgress: number;
   hasMine: boolean; // Mine overlay placed by power-up
   letterMultiplier: number; // 1 = normal, 2 = double letter, 3 = triple letter
+  fallDelay: number;  // frames to wait before starting fall animation (column stagger)
+  fallDist: number;   // rows fallen (used for trail length and speed scaling)
+  landingProgress: number; // 0-1 squish-settle animation after landing (0 = not started)
 }
 
 let tileIdCounter = 0;
@@ -68,6 +71,9 @@ export function createTile(letter: string, row: number, col: number, specialType
     animProgress: 1,
     hasMine: false,
     letterMultiplier: 1,
+    fallDelay: 0,
+    fallDist: 0,
+    landingProgress: 0,
   };
 }
 
@@ -291,6 +297,7 @@ export interface GameState {
   pendingGravity: boolean; // gravity+refill needs to run after flush
   _pendingSpecialSpawn: { row: number; col: number; specialType: SpecialType } | null;
   _particlesSpawnedSet: Set<string>; // tracks which clearing tiles already spawned particles
+  _landingSpawnedSet: Set<string>;   // tracks which falling tiles already spawned landing fx
 }
 
 export interface ChainModeState {
@@ -473,6 +480,7 @@ export function createGameState(level: LevelConfig): GameState {
     pendingGravity: false,
     _pendingSpecialSpawn: null,
     _particlesSpawnedSet: new Set<string>(),
+    _landingSpawnedSet: new Set<string>(),
   };
 }
 
@@ -553,6 +561,7 @@ export function flushPendingClears(state: GameState) {
   state.pendingClearDuration = 0;
   state.explosionClears = [];
   state._particlesSpawnedSet.clear();
+  state._landingSpawnedSet.clear();
 }
 
 function calculateWordScore(state: GameState, path: Tile[], word: string): number {
@@ -951,16 +960,24 @@ function processMineDetonations(state: GameState) {
 export function applyGravity(state: GameState) {
   for (let c = 0; c < state.boardSize; c++) {
     let writeRow = state.boardSize - 1;
+    // Count tiles that need to fall in this column (for stagger ordering)
+    let fallRank = 0; // deepest tile falls first (rank 0), shallower tiles follow
     for (let r = state.boardSize - 1; r >= 0; r--) {
       if (state.board[r][c] !== null) {
         const tile = state.board[r][c]!;
         if (r !== writeRow) {
+          const dist = writeRow - r;
           tile.fallFromRow = r;
           tile.row = writeRow;
           tile.isFalling = true;
           tile.animProgress = 0;
+          tile.fallDist = dist;
+          // Stagger: deepest-falling tile starts first, higher tiles follow a few frames later
+          tile.fallDelay = fallRank * 2;
+          tile.landingProgress = 0;
           state.board[writeRow][c] = tile;
           state.board[r][c] = null;
+          fallRank++;
         }
         writeRow--;
       }
@@ -983,12 +1000,28 @@ export function refillBoard(state: GameState) {
     : null;
 
   for (let c = 0; c < state.boardSize; c++) {
+    // Count empty slots in this column so we can stagger from top (first to arrive = highest slot)
+    let slotRank = 0;
+    for (let r = state.boardSize - 1; r >= 0; r--) {
+      if (state.board[r][c] === null) slotRank++;
+    }
+    let slotIndex = 0;
     for (let r = state.boardSize - 1; r >= 0; r--) {
       if (state.board[r][c] === null) {
         const tile = createTile(randomLetter(), r, c);
-        tile.fallFromRow = -1;
+        // Spawn from above: fallFromRow is a virtual row above the board
+        // Higher slots (r closer to 0) have a shorter drop distance
+        const spawnRow = -(slotRank - slotIndex); // e.g. -3, -2, -1 for 3 slots
+        tile.fallFromRow = spawnRow;
         tile.isFalling = true;
         tile.animProgress = 0;
+        // Distance from spawn row to dest row
+        tile.fallDist = r - spawnRow;
+        // Stagger by slot: topmost tile starts a few frames after lower ones
+        // so they arrive close together but the lowest lands first
+        tile.fallDelay = (slotRank - 1 - slotIndex) * 2;
+        tile.landingProgress = 0;
+        slotIndex++;
 
         if (linkTarget && linkTarget.row === r && linkTarget.col === c) {
           tile.specialType = 'link';
