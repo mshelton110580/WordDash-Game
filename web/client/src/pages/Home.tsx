@@ -237,13 +237,16 @@ export default function Home() {
     setScreen('game');
   }, []);
 
-  const handleWordSubmitted = useCallback((word: string, score: number, valid: boolean) => {
+  const handleWordSubmitted = useCallback((word: string, score: number, valid: boolean, reason?: string) => {
     if (valid) {
       SoundEngine.playWordSuccess();
       toast.success(`"${word}" +${score}`, { duration: 1500 });
     } else if (word.length >= 3) {
       SoundEngine.playWordFail();
-      toast.error(`"${word}" not in dictionary`, { duration: 1200 });
+      const msg = reason === 'already_used'
+        ? `"${word}" already used!`
+        : `"${word}" not in dictionary`;
+      toast.error(msg, { duration: 1200 });
     }
   }, []);
 
@@ -618,7 +621,7 @@ function LevelSelectScreen({ onBack, onSelectLevel, bestScores, testMode = false
 function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
   gameState: GameState;
   onStateChange: (state: GameState) => void;
-  onWordSubmitted: (word: string, score: number, valid: boolean) => void;
+  onWordSubmitted: (word: string, score: number, valid: boolean, reason?: string) => void;
   onQuit: () => void;
 }) {
   const level = gameState.level;

@@ -28,7 +28,7 @@ import {
 interface GameBoardProps {
   gameState: GameState;
   onStateChange: (state: GameState) => void;
-  onWordSubmitted: (word: string, score: number, valid: boolean) => void;
+  onWordSubmitted: (word: string, score: number, valid: boolean, reason?: string) => void;
 }
 
 const TILE_GAP = 4;
@@ -1019,7 +1019,7 @@ export default function GameBoard({ gameState, onStateChange, onWordSubmitted }:
         }
       }
 
-      onWordSubmitted(result.word, result.score, result.valid);
+      onWordSubmitted(result.word, result.score, result.valid, result.reason);
     } else {
       gameState.selectedPath = [];
     }

@@ -730,7 +730,7 @@ function chainPathKey(word: string, path: { row: number; col: number }[]): strin
   return `${word}:${coords}`;
 }
 
-export function submitWord(state: GameState): { valid: boolean; score: number; word: string } {
+export function submitWord(state: GameState): { valid: boolean; score: number; word: string; reason?: 'not_in_dictionary' | 'already_used' } {
   const path = state.selectedPath;
   if (path.length < 3) return { valid: false, score: 0, word: '' };
 
@@ -738,7 +738,7 @@ export function submitWord(state: GameState): { valid: boolean; score: number; w
   if (!isValidWord(word)) {
     triggerScreenShake(state, 4, 12);
     state.selectedPath = [];
-    return { valid: false, score: 0, word };
+    return { valid: false, score: 0, word, reason: 'not_in_dictionary' };
   }
 
   // In link/chain mode, block reusing the exact same tiles to spell the same word
@@ -749,7 +749,7 @@ export function submitWord(state: GameState): { valid: boolean; score: number; w
       state.selectedPath = [];
       state.uiMessage = 'Already used!';
       state.uiMessageTimer = 90;
-      return { valid: false, score: 0, word };
+      return { valid: false, score: 0, word, reason: 'already_used' };
     }
   }
 
