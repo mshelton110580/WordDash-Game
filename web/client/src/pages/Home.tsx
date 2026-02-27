@@ -39,6 +39,8 @@ import {
   type ContinueSession,
   type PowerupInventory,
 } from '@/lib/economy';
+import { SoundEngine } from '@/lib/soundEngine';
+import { GameStatsManager } from '@/lib/gameStats';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -53,7 +55,7 @@ const APP_BG = {
 };
 
 
-type Screen = 'menu' | 'levels' | 'game' | 'result' | 'store' | 'continue';
+type Screen = 'menu' | 'levels' | 'game' | 'result' | 'store' | 'continue' | 'stats' | 'settings' | 'tutorial';
 
 // --- Coin display with animated changes ---
 function CoinDisplay({ size = 'md', className = '' }: { size?: 'sm' | 'md' | 'lg'; className?: string }) {
@@ -101,9 +103,10 @@ export default function Home() {
   const [dailyRewardShown, setDailyRewardShown] = useState(false);
   const [dailyRewardAmount, setDailyRewardAmount] = useState(0);
   const [dailyRewardDay, setDailyRewardDay] = useState(0);
+  const [testMode, setTestMode] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load word list on mount + check daily login
+  // Load word list on mount + check daily login + tutorial
   useEffect(() => {
     loadWordList().then(() => setLoading(false));
     try {
@@ -117,6 +120,12 @@ export default function Home() {
       setDailyRewardAmount(reward.amount);
       setDailyRewardDay(reward.day);
       setDailyRewardShown(true);
+    }
+
+    // Show tutorial on first launch
+    const tutorialSeen = localStorage.getItem('worddash_tutorial_seen');
+    if (!tutorialSeen) {
+      setTimeout(() => setScreen('tutorial'), 800);
     }
   }, []);
 
@@ -169,6 +178,21 @@ export default function Home() {
         });
         setCoinBreakdown(breakdown);
         CoinManager.addCoins(breakdown.total, 'levelBase');
+        SoundEngine.playLevelComplete();
+
+        // Track stats (matching iOS PersistenceManager.updateStatsOnLevelComplete)
+        const longestWord = gameState.wordsFound.reduce((a, b) => b.length > a.length ? b : a, '');
+        GameStatsManager.updateOnLevelComplete({
+          levelNumber: lvl,
+          wordsFound: gameState.wordsFound.length,
+          score: gameState.score,
+          stars: gameState.stars,
+          maxStreak: gameState.maxStreakReached,
+          maxCascade: gameState.maxCascadeReached,
+          timeRemaining: gameState.timeRemaining,
+          coinsEarned: breakdown.total,
+          longestWord,
+        });
 
         // Save power-up inventory
         saveInventory({
@@ -215,8 +239,10 @@ export default function Home() {
 
   const handleWordSubmitted = useCallback((word: string, score: number, valid: boolean) => {
     if (valid) {
+      SoundEngine.playWordSuccess();
       toast.success(`"${word}" +${score}`, { duration: 1500 });
     } else if (word.length >= 3) {
+      SoundEngine.playWordFail();
       toast.error(`"${word}" not in dictionary`, { duration: 1200 });
     }
   }, []);
@@ -291,10 +317,19 @@ export default function Home() {
         </AnimatePresence>
 
         <AnimatePresence mode="wait">
-          {screen === 'menu' && <MenuScreen key="menu" onPlay={() => setScreen('levels')} onStore={() => setScreen('store')} />}
+          {screen === 'menu' && <MenuScreen key="menu" onPlay={() => setScreen('levels')} onStore={() => setScreen('store')} onStats={() => setScreen('stats')} onSettings={() => setScreen('settings')} testMode={testMode} onToggleTestMode={() => {
+            const newMode = !testMode;
+            setTestMode(newMode);
+            if (newMode) {
+              CoinManager.setBalance(10000);
+              toast.success('Test Mode ON: All levels unlocked, coins set to 10,000', { duration: 3000 });
+            } else {
+              toast.info('Test Mode OFF', { duration: 2000 });
+            }
+          }} />}
           {screen === 'store' && <StoreScreen key="store" onBack={() => setScreen('menu')} />}
           {screen === 'levels' && (
-            <LevelSelectScreen key="levels" onBack={() => setScreen('menu')} onSelectLevel={startLevel} bestScores={bestScores} />
+            <LevelSelectScreen key="levels" onBack={() => setScreen('menu')} onSelectLevel={startLevel} bestScores={bestScores} testMode={testMode} />
           )}
           {screen === 'game' && gameState && (
             <GameScreen
@@ -327,6 +362,9 @@ export default function Home() {
               onStore={() => setScreen('store')}
             />
           )}
+          {screen === 'stats' && <StatsScreen key="stats" onBack={() => setScreen('menu')} />}
+          {screen === 'settings' && <SettingsScreen key="settings" onBack={() => setScreen('menu')} />}
+          {screen === 'tutorial' && <TutorialOverlay key="tutorial" onDismiss={() => { localStorage.setItem('worddash_tutorial_seen', 'true'); setScreen('menu'); }} />}
         </AnimatePresence>
       </div>
     </div>
@@ -384,7 +422,7 @@ function DailyLoginModal({ day, amount, onClaim }: { day: number; amount: number
 }
 
 // --- Menu Screen ---
-function MenuScreen({ onPlay, onStore }: { onPlay: () => void; onStore: () => void }) {
+function MenuScreen({ onPlay, onStore, onStats, onSettings, testMode, onToggleTestMode }: { onPlay: () => void; onStore: () => void; onStats: () => void; onSettings: () => void; testMode: boolean; onToggleTestMode: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="min-h-screen flex flex-col items-center justify-center px-4">
       <div className="absolute top-4 right-4">
@@ -417,9 +455,29 @@ function MenuScreen({ onPlay, onStore }: { onPlay: () => void; onStore: () => vo
           🛒 Store
         </Button>
       </motion.div>
+      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.6 }} className="flex gap-3 mt-4">
+        <Button onClick={onStats} variant="outline" className="px-6 py-3 border-white/10 text-white/60 hover:text-white hover:bg-white/10 rounded-xl transition-all hover:scale-105">
+          📊 Stats
+        </Button>
+        <Button onClick={onSettings} variant="outline" className="px-6 py-3 border-white/10 text-white/60 hover:text-white hover:bg-white/10 rounded-xl transition-all hover:scale-105">
+          ⚙️ Settings
+        </Button>
+      </motion.div>
       <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-6 text-emerald-100/55 text-sm">
         Drag across tiles to form words. Longer words earn special tiles!
       </motion.p>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }} className="mt-8">
+        <button
+          onClick={onToggleTestMode}
+          className={`px-6 py-2.5 rounded-lg text-xs font-bold tracking-wide transition-all border ${
+            testMode
+              ? 'bg-red-500/20 border-red-400/40 text-red-300 hover:bg-red-500/30 shadow-lg shadow-red-900/20'
+              : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60'
+          }`}
+        >
+          {testMode ? '🧪 TEST MODE ON' : '🧪 Enable Test Mode'}
+        </button>
+      </motion.div>
     </motion.div>
   );
 }
@@ -501,10 +559,11 @@ function StoreScreen({ onBack }: { onBack: () => void }) {
 }
 
 // --- Level Select ---
-function LevelSelectScreen({ onBack, onSelectLevel, bestScores }: {
+function LevelSelectScreen({ onBack, onSelectLevel, bestScores, testMode = false }: {
   onBack: () => void;
   onSelectLevel: (level: LevelConfig) => void;
   bestScores: Record<number, { score: number; stars: number }>;
+  testMode?: boolean;
 }) {
   return (
     <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="min-h-screen px-4 py-8">
@@ -518,7 +577,7 @@ function LevelSelectScreen({ onBack, onSelectLevel, bestScores }: {
           {LEVELS.map((level) => {
             const best = bestScores[level.levelNumber];
             const prevBest = bestScores[level.levelNumber - 1];
-            const isUnlocked = level.levelNumber === 1 || !!prevBest;
+            const isUnlocked = testMode || level.levelNumber === 1 || !!prevBest;
             return (
               <motion.button
                 key={level.levelNumber}
@@ -577,12 +636,14 @@ function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
 
   const activatePowerUp = (name: string) => {
     if (name === 'shuffle') {
+      SoundEngine.playPowerUp();
       useShuffle(gameState);
       onStateChange({ ...gameState });
       toast.info('Board shuffled!');
       return;
     }
     if (name === 'hint') {
+      SoundEngine.playPowerUp();
       useHintPowerUp(gameState);
       onStateChange({ ...gameState });
       if (gameState.hintPath.length > 0) {
@@ -601,6 +662,7 @@ function GameScreen({ gameState, onStateChange, onWordSubmitted, onQuit }: {
     };
     const fn = placementFns[name];
     if (fn) {
+      SoundEngine.playPowerUp();
       fn(gameState);
       onStateChange({ ...gameState });
       const labels: Record<string, string> = {
@@ -966,6 +1028,252 @@ function ResultScreen({ gameState, coinBreakdown, onReplay, onLevels, onNextLeve
             </Button>
           )}
         </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+
+// --- Stats Screen (matches iOS StatsScene) ---
+function StatsScreen({ onBack }: { onBack: () => void }) {
+  const stats = GameStatsManager.stats;
+  const globalRows: [string, string][] = [
+    ['Words Found', `${stats.totalWordsFound}`],
+    ['Total Score', stats.totalScore >= 1000000 ? `${(stats.totalScore / 1000000).toFixed(1)}M` : stats.totalScore >= 1000 ? `${(stats.totalScore / 1000).toFixed(1)}K` : `${stats.totalScore}`],
+    ['Levels Completed', `${stats.levelsCompleted}`],
+    ['Best Streak', `${stats.bestStreak.toFixed(1)}x`],
+    ['Best Cascade', stats.bestCascade > 0 ? `×${stats.bestCascade}` : '—'],
+    ['Longest Word', stats.longestWord || '—'],
+    ['Coins Earned', stats.totalCoinsEarned >= 1000 ? `${(stats.totalCoinsEarned / 1000).toFixed(1)}K` : `${stats.totalCoinsEarned}`],
+    ['Sessions Played', `${stats.sessionsPlayed}`],
+    ['Last Played', stats.lastPlayedDate || '—'],
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="min-h-screen px-4 py-8">
+      <div className="max-w-lg mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <Button variant="ghost" onClick={onBack} className="text-white/60 hover:text-white">← Back</Button>
+          <h2 className="text-xl font-bold text-white">📊 Your Stats</h2>
+          <CoinDisplay size="sm" />
+        </div>
+
+        {/* Global Stats */}
+        <div className="mb-6">
+          <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3">Global Stats</h3>
+          <div className="space-y-1">
+            {globalRows.map(([label, value]) => (
+              <div key={label} className="flex justify-between items-center px-4 py-2.5 rounded-lg bg-white/[0.03]">
+                <span className="text-sm text-white/50">{label}</span>
+                <span className="text-sm text-white font-mono font-bold">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Level Performance Table */}
+        <div>
+          <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3">Level Performance</h3>
+          <div className="rounded-xl border border-white/5 overflow-hidden">
+            {/* Table header */}
+            <div className="grid grid-cols-3 px-4 py-2 bg-white/[0.03] text-[11px] text-white/35 font-bold uppercase tracking-wider">
+              <span>Level</span>
+              <span className="text-center">Stars</span>
+              <span className="text-right">Best Score</span>
+            </div>
+            {/* Table rows */}
+            {Array.from({ length: 10 }, (_, i) => i + 1).map(level => {
+              const stars = stats.levelStars[level] ?? 0;
+              const score = stats.levelBestScores[level] ?? 0;
+              return (
+                <div key={level} className={`grid grid-cols-3 px-4 py-2 ${stars > 0 ? 'bg-emerald-900/10' : 'bg-white/[0.01]'} border-t border-white/[0.03]`}>
+                  <span className={`text-sm font-bold ${stars > 0 ? 'text-white' : 'text-white/25'}`}>Lvl {level}</span>
+                  <span className="text-center text-sm">
+                    {stars > 0
+                      ? <span className="text-amber-400">{'★'.repeat(stars)}{'☆'.repeat(3 - stars)}</span>
+                      : <span className="text-white/20">—</span>
+                    }
+                  </span>
+                  <span className={`text-right text-sm font-mono ${score > 0 ? 'text-emerald-400 font-bold' : 'text-white/20'}`}>
+                    {score > 0 ? (score >= 1000 ? `${(score / 1000).toFixed(1)}K` : score) : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// --- Settings Screen (matches iOS SettingsScene) ---
+function SettingsScreen({ onBack }: { onBack: () => void }) {
+  const [soundEnabled, setSoundEnabled] = useState(SoundEngine.enabled);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const toggleSound = () => {
+    const newVal = !soundEnabled;
+    SoundEngine.enabled = newVal;
+    setSoundEnabled(newVal);
+    toast.info(newVal ? 'Sound enabled' : 'Sound disabled');
+  };
+
+  const resetProgress = () => {
+    // Clear all localStorage keys
+    localStorage.removeItem('worddash_progress');
+    localStorage.removeItem('worddash_coins');
+    localStorage.removeItem('worddash_first_launch');
+    localStorage.removeItem('worddash_powerup_inventory');
+    localStorage.removeItem('worddash_daily_login');
+    localStorage.removeItem('worddash_tutorial_seen');
+    GameStatsManager.reset();
+    CoinManager.resetToStarting();
+    setShowResetConfirm(false);
+    toast.success('Progress reset! Reload to start fresh.');
+    // Reload after a brief delay
+    setTimeout(() => window.location.reload(), 1500);
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} className="min-h-screen px-4 py-8">
+      <div className="max-w-lg mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <Button variant="ghost" onClick={onBack} className="text-white/60 hover:text-white">← Back</Button>
+          <h2 className="text-xl font-bold text-white">⚙️ Settings</h2>
+          <div className="w-16" />
+        </div>
+
+        {/* Sound Toggle */}
+        <div className="flex items-center justify-between px-5 py-4 rounded-xl border border-white/5 bg-white/[0.03] mb-4">
+          <div>
+            <div className="text-white font-bold text-sm">Sound Effects</div>
+            <div className="text-white/40 text-xs">Procedural audio for tile clicks, words, and explosions</div>
+          </div>
+          <button
+            onClick={toggleSound}
+            className={`relative w-14 h-7 rounded-full transition-colors ${soundEnabled ? 'bg-emerald-500' : 'bg-white/20'}`}
+          >
+            <motion.div
+              animate={{ x: soundEnabled ? 24 : 2 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md"
+            />
+          </button>
+        </div>
+
+        {/* Haptics note */}
+        <div className="flex items-center justify-between px-5 py-4 rounded-xl border border-white/5 bg-white/[0.03] mb-8 opacity-50">
+          <div>
+            <div className="text-white font-bold text-sm">Haptic Feedback</div>
+            <div className="text-white/40 text-xs">Available on iOS only</div>
+          </div>
+          <div className="text-white/30 text-xs">N/A</div>
+        </div>
+
+        {/* Reset Progress */}
+        <div className="border-t border-white/5 pt-6">
+          <h3 className="text-xs font-bold text-red-400/80 uppercase tracking-wider mb-3">Danger Zone</h3>
+          {!showResetConfirm ? (
+            <Button
+              onClick={() => setShowResetConfirm(true)}
+              className="w-full bg-red-500/15 hover:bg-red-500/25 text-red-400 font-bold rounded-xl border border-red-500/20"
+            >
+              Reset All Progress
+            </Button>
+          ) : (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+              <p className="text-red-400/80 text-sm text-center">This will erase all progress, coins, stats, and power-ups. Are you sure?</p>
+              <div className="flex gap-3">
+                <Button onClick={() => setShowResetConfirm(false)} variant="outline" className="flex-1 border-white/10 text-white/60">
+                  Cancel
+                </Button>
+                <Button onClick={resetProgress} className="flex-1 bg-red-500 hover:bg-red-400 text-white font-bold">
+                  Yes, Reset Everything
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Show Tutorial Again */}
+        <div className="mt-6">
+          <Button
+            onClick={() => { onBack(); setTimeout(() => { localStorage.removeItem('worddash_tutorial_seen'); window.dispatchEvent(new CustomEvent('show-tutorial')); }, 100); }}
+            variant="outline"
+            className="w-full border-white/10 text-white/50 hover:text-white hover:bg-white/10 rounded-xl"
+          >
+            📖 Show Tutorial Again
+          </Button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// --- Tutorial Overlay (matches iOS TutorialScene — 6-step paginated) ---
+function TutorialOverlay({ onDismiss }: { onDismiss: () => void }) {
+  const steps = [
+    { emoji: '👆', title: 'Drag to Spell', body: 'Touch and drag across adjacent tiles to spell words. Connect tiles in any of 8 directions including diagonals.' },
+    { emoji: '💥', title: 'Words Clear the Board', body: 'Valid words explode the tiles and fill from the top. Tiles fall with gravity — chain reactions earn cascade bonuses!' },
+    { emoji: '⚡', title: 'Earn Special Tiles', body: 'Spell long words to earn powerful tiles. 5-letter words spawn Bombs, 6-letter Lasers, 7-letter Cross Lasers, 8+ Wildcards.' },
+    { emoji: '🔥', title: 'Build Streaks', body: 'Submit words quickly to build a streak multiplier up to 3×. More points per word the hotter your streak!' },
+    { emoji: '🎯', title: 'Use Power-Ups', body: 'Tap a power-up icon then tap a tile to activate it. Hints highlight a word. Bombs, Lasers, and Mines clear large areas.' },
+    { emoji: '🪙', title: 'Earn Coins', body: 'Complete levels to earn coins. Buy more power-ups in the Store. Daily login bonuses increase each consecutive day.' },
+  ];
+
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const advance = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      onDismiss();
+    }
+  };
+
+  const step = steps[currentStep];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+    >
+      <motion.div
+        key={currentStep}
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+        className="w-full max-w-sm p-8 rounded-2xl border border-emerald-500/15 bg-gradient-to-b from-[#0d1f1a] to-[#111a18] text-center shadow-2xl"
+      >
+        {/* Skip button */}
+        <button onClick={onDismiss} className="absolute top-4 right-4 text-white/30 hover:text-white/60 text-xs transition-colors">
+          Skip →
+        </button>
+
+        <div className="text-5xl mb-4">{step.emoji}</div>
+        <h2 className="text-xl font-bold text-white mb-3">{step.title}</h2>
+        <p className="text-white/60 text-sm leading-relaxed mb-6">{step.body}</p>
+
+        {/* Step dots */}
+        <div className="flex justify-center gap-2 mb-5">
+          {steps.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentStep(i)}
+              className={`w-2.5 h-2.5 rounded-full transition-all ${
+                i === currentStep ? 'bg-emerald-400 scale-125' : 'bg-white/20 hover:bg-white/30'
+              }`}
+            />
+          ))}
+        </div>
+
+        <Button onClick={advance} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl">
+          {currentStep === steps.length - 1 ? "Let's Play!" : 'Next →'}
+        </Button>
       </motion.div>
     </motion.div>
   );

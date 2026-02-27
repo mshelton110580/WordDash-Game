@@ -163,6 +163,13 @@ class CoinManagerClass {
     this._balance = GameEconomyConfig.startingCoins;
     this.save();
   }
+
+  setBalance(amount: number): void {
+    const delta = amount - this._balance;
+    this._balance = amount;
+    this.save();
+    this.notifyListeners(delta, 'levelBase');
+  }
 }
 
 export const CoinManager = new CoinManagerClass();

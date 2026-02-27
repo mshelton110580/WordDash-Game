@@ -140,8 +140,8 @@ export function areAdjacent(a: Tile, b: Tile): boolean {
 }
 
 // --- Dictionary sources (loaded async) ---
-// Gameplay validation uses Collins dictionary.
-// Hint generation uses Oxford 3000 list.
+// Gameplay validation uses TWL06 (Official Scrabble Tournament Word List, ~178K words).
+// Hint generation uses Oxford 3000 list (~2935 common English words).
 let collinsWordSet: Set<string> = new Set();
 let oxfordHintWordSet: Set<string> = new Set();
 let wordListLoaded = false;
@@ -179,7 +179,7 @@ export async function loadWordList(): Promise<void> {
       collinsResp = await fetch('/wordlist.txt');
       if (!collinsResp.ok) throw new Error('Local Collins fetch failed');
     } catch {
-      collinsResp = await fetch('https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/FwtwNksZrpzYsGNR.txt');
+      collinsResp = await fetch('https://files.manuscdn.com/user_upload_by_module/session_file/310519663270198678/xhhiGnVTPnhcwIee.txt');
     }
 
     collinsWordSet = new Set(parseUpperWords(await collinsResp.text()));
